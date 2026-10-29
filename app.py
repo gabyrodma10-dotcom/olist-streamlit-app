@@ -1,3 +1,4 @@
+
 from pathlib import Path
 from datetime import timedelta
 import json
@@ -244,11 +245,9 @@ def inicio():
     with col1:
 
         with st.container(border=True):
-
             st.markdown(
                 "#### 📦 Predicción de riesgo"
             )
-
             st.write(
                 "Simula un pedido y consulta la probabilidad "
                 "estimada de recibir una reseña de 1 o 2 "
@@ -256,11 +255,9 @@ def inicio():
             )
 
         with st.container(border=True):
-
             st.markdown(
                 "#### 👥 Segmentación de vendedores"
             )
-
             st.write(
                 "Explora los grupos identificados con "
                 "K-Means y sus diferencias en pedidos, "
@@ -271,11 +268,9 @@ def inicio():
     with col2:
 
         with st.container(border=True):
-
             st.markdown(
                 "#### 💬 Análisis de comentarios"
             )
-
             st.write(
                 "Compara el sentimiento expresado en "
                 "las reseñas con las estrellas otorgadas "
@@ -283,11 +278,9 @@ def inicio():
             )
 
         with st.container(border=True):
-
             st.markdown(
                 "#### 📈 Validación y comparación de modelos"
             )
-
             st.write(
                 "Revisa el desempeño de XGBoost, "
                 "regresión logística y las referencias "
@@ -295,11 +288,9 @@ def inicio():
             )
 
     with st.container(border=True):
-
         st.markdown(
             "#### 🧠 Plus · Keras vs. XGBoost (+5 puntos)"
         )
-
         st.write(
             "Explora la comparación adicional de una "
             "red neuronal Keras frente a XGBoost, "
@@ -336,7 +327,7 @@ def riesgo():
         "a partir de sus características y datos de "
         "entrega. Para la priorización se utiliza el "
         "**10% de pedidos con mayor riesgo** según "
-        "un umbral establecido con datos de entrenamiento."
+        "un umbral establecido con datos históricos."
     )
 
     st.info(
@@ -368,10 +359,7 @@ def riesgo():
 
     datos = EJEMPLOS[clave].copy()
 
-    pref = (
-        "riesgo_"
-        + clave.replace(" ", "_")
-    )
+    pref = "riesgo_" + clave.replace(" ", "_")
 
     campos_fecha = [
         (
@@ -401,11 +389,8 @@ def riesgo():
         key = f"{pref}_{campo}"
 
         if key not in st.session_state:
-
             st.session_state[key] = (
-                pd.to_datetime(
-                    datos[campo]
-                ).date()
+                pd.to_datetime(datos[campo]).date()
             )
 
     key_dias = f"{pref}_dias"
@@ -419,14 +404,12 @@ def riesgo():
     )
 
     if key_dias not in st.session_state:
-
         st.session_state[key_dias] = (
             st.session_state[key_real]
             - st.session_state[key_prometida]
         ).days
 
     def cambio_barra():
-
         st.session_state[key_real] = (
             st.session_state[key_prometida]
             + timedelta(
@@ -435,7 +418,6 @@ def riesgo():
         )
 
     def cambio_fecha_real():
-
         diferencia = (
             st.session_state[key_real]
             - st.session_state[key_prometida]
@@ -481,9 +463,7 @@ def riesgo():
         key_real
     ]
 
-    dias = (
-        real - prometida
-    ).days
+    dias = (real - prometida).days
 
     a, b, c = st.columns(3)
 
@@ -503,20 +483,17 @@ def riesgo():
     )
 
     if dias > 0:
-
         st.warning(
             f"El pedido llega **{dias} días tarde**."
         )
 
     elif dias < 0:
-
         st.success(
             f"El pedido llega "
             f"**{abs(dias)} días antes**."
         )
 
     else:
-
         st.success(
             "El pedido llega en la fecha prometida."
         )
@@ -577,16 +554,10 @@ def riesgo():
                 kwargs = {}
 
                 if campo == "order_delivered_customer_date":
-
-                    kwargs["on_change"] = (
-                        cambio_fecha_real
-                    )
+                    kwargs["on_change"] = cambio_fecha_real
 
                 elif campo == "order_estimated_delivery_date":
-
-                    kwargs["on_change"] = (
-                        cambio_fecha_prometida
-                    )
+                    kwargs["on_change"] = cambio_fecha_prometida
 
                 st.date_input(
                     etiqueta,
@@ -630,9 +601,7 @@ def riesgo():
             pd.Timestamp.combine(
                 fecha,
                 original.time(),
-            ).strftime(
-                "%Y-%m-%dT%H:%M:%S"
-            )
+            ).strftime("%Y-%m-%dT%H:%M:%S")
         )
 
     compra = pd.to_datetime(
@@ -654,21 +623,18 @@ def riesgo():
     errores = []
 
     if aprobacion < compra:
-
         errores.append(
             "La aprobación no puede ser anterior "
             "a la compra."
         )
 
     if transportista < aprobacion:
-
         errores.append(
             "La entrega al transportista no puede "
             "ser anterior a la aprobación."
         )
 
     if entrega < transportista:
-
         errores.append(
             "La entrega real no puede ser anterior "
             "a la entrega al transportista."
@@ -713,31 +679,23 @@ def riesgo():
     if enviar_json:
 
         try:
-
             datos = json.loads(texto)
 
             if not isinstance(datos, dict):
-
                 st.error(
                     "El JSON debe ser un objeto "
                     "con los campos del pedido."
                 )
-
                 return
 
         except json.JSONDecodeError as exc:
-
-            st.error(
-                f"JSON inválido: {exc}"
-            )
-
+            st.error(f"JSON inválido: {exc}")
             return
 
     elif not enviar:
         return
 
     try:
-
         compra = pd.to_datetime(
             datos["order_purchase_timestamp"]
         )
@@ -758,17 +716,11 @@ def riesgo():
             datos["order_estimated_delivery_date"]
         )
 
-    except (
-        ValueError,
-        KeyError,
-        TypeError,
-    ):
-
+    except (ValueError, KeyError, TypeError):
         st.error(
             "Revisa las fechas: falta un campo "
             "o alguna fecha no es válida."
         )
-
         return
 
     if not (
@@ -777,22 +729,18 @@ def riesgo():
         <= transportista
         <= entrega
     ):
-
         st.error(
             "Las fechas deben seguir este orden: "
             "compra, aprobación, transportista "
             "y entrega real."
         )
-
         return
 
     if estimada < compra:
-
         st.error(
             "La fecha prometida no puede "
             "ser anterior a la compra."
         )
-
         return
 
     with st.spinner(
@@ -801,7 +749,6 @@ def riesgo():
     ):
 
         try:
-
             respuesta = requests.post(
                 api_url() + "/riesgo",
                 json=datos,
@@ -809,26 +756,20 @@ def riesgo():
             )
 
         except requests.exceptions.Timeout:
-
             st.error(
                 "La API tardó demasiado. "
                 "Vuelve a intentarlo en unos segundos."
             )
-
             return
 
         except requests.exceptions.RequestException as exc:
-
             st.error(
                 "No se pudo conectar con la API."
             )
-
             st.caption(str(exc))
-
             return
 
     if respuesta.status_code == 422:
-
         st.warning(
             "La API rechazó los datos (HTTP 422). "
             "Revisa los campos y las fechas."
@@ -842,20 +783,16 @@ def riesgo():
         return
 
     if not respuesta.ok:
-
         st.error(
             f"La API devolvió HTTP "
             f"{respuesta.status_code}."
         )
-
         st.code(
             respuesta.text[:1000]
         )
-
         return
 
     try:
-
         resultado = respuesta.json()
 
         probabilidad = float(
@@ -863,17 +800,11 @@ def riesgo():
         )
 
         if not 0 <= probabilidad <= 1:
-
             raise ValueError(
                 "Probabilidad fuera de rango"
             )
 
-    except (
-        ValueError,
-        TypeError,
-        KeyError,
-    ):
-
+    except (ValueError, TypeError, KeyError):
         st.error(
             "La API no devolvió una "
             "probabilidad válida."
@@ -896,7 +827,6 @@ def riesgo():
     )
 
     try:
-
         umbral = (
             float(umbral_api)
             if umbral_api is not None
@@ -904,16 +834,11 @@ def riesgo():
         )
 
         if not 0 <= umbral <= 1:
-
             raise ValueError(
                 "Umbral fuera de rango"
             )
 
-    except (
-        ValueError,
-        TypeError,
-    ):
-
+    except (ValueError, TypeError):
         umbral = UMBRAL_REFERENCIA
 
     st.subheader(
@@ -933,28 +858,24 @@ def riesgo():
     )
 
     if alto is True:
-
         st.error(
             "**RIESGO ALTO · Priorizar seguimiento.** "
             "El pedido supera el criterio de la API."
         )
 
     elif alto is False:
-
         st.success(
             "**RIESGO NO ALTO.** "
             "El pedido no fue priorizado por la API."
         )
 
     else:
-
         st.warning(
             "La API no devolvió una clasificación "
             "de riesgo alto/no alto."
         )
 
     if umbral_api is None:
-
         st.caption(
             "El umbral mostrado (26.21%) proviene "
             "del cálculo final del notebook; "
@@ -964,7 +885,6 @@ def riesgo():
         )
 
     else:
-
         st.caption(
             "El umbral mostrado y la clasificación "
             "proceden de la API desplegada."
@@ -994,7 +914,6 @@ def riesgo():
     with st.expander(
         "Ver respuesta técnica completa de FastAPI"
     ):
-
         st.json(resultado)
 
 
@@ -1014,11 +933,9 @@ def comentarios():
     )
 
     if df is None:
-
         aviso_archivo(
             "sentimiento_comentarios.csv"
         )
-
         return
 
     requeridas = [
@@ -1031,13 +948,11 @@ def comentarios():
         c not in df.columns
         for c in requeridas
     ):
-
         st.error(
             "El CSV no contiene las columnas "
             "requeridas: "
             + ", ".join(requeridas)
         )
-
         return
 
     datos = df.copy()
@@ -1091,12 +1006,10 @@ def comentarios():
     ].copy()
 
     if datos.empty:
-
         st.error(
             "No hay filas válidas para comparar "
             "estrellas y sentimiento."
         )
-
         return
 
     aciertos = int(
@@ -1134,7 +1047,6 @@ def comentarios():
     with st.expander(
         "Metodología del análisis de sentimiento"
     ):
-
         st.write(
             "Muestra reproducible de 1,000 comentarios "
             "(random_state=42). Modelo preentrenado: "
@@ -1334,9 +1246,7 @@ def comentarios():
         ]
 
         if not coincidencias.empty:
-
             fila = coincidencias.iloc[0]
-
             encontrados.append(
                 (
                     fila,
@@ -1352,9 +1262,7 @@ def comentarios():
         1,
     ):
 
-        with st.container(
-            border=True
-        ):
+        with st.container(border=True):
 
             st.markdown(
                 f"**Caso {i} · "
@@ -1375,7 +1283,6 @@ def comentarios():
             )
 
     if len(encontrados) < 5:
-
         st.warning(
             f"Se verificaron {len(encontrados)} "
             "de los 5 casos documentados en el notebook. "
@@ -1434,7 +1341,6 @@ def comentarios():
     izquierda, derecha = st.columns(2)
 
     with izquierda:
-
         filtro_coincidencia = st.selectbox(
             "Mostrar comentarios",
             [
@@ -1445,7 +1351,6 @@ def comentarios():
         )
 
     with derecha:
-
         filtro_estrellas = st.selectbox(
             "Filtrar por estrellas",
             [
@@ -1461,19 +1366,16 @@ def comentarios():
     filtrados = datos.copy()
 
     if filtro_coincidencia == "Solo coincidencias":
-
         filtrados = filtrados[
             filtrados["coincide_calculado"]
         ]
 
     elif filtro_coincidencia == "Solo desacuerdos":
-
         filtrados = filtrados[
             ~filtrados["coincide_calculado"]
         ]
 
     if filtro_estrellas != "Todas":
-
         filtrados = filtrados[
             filtrados["review_score"]
             == filtro_estrellas
@@ -1533,7 +1435,7 @@ def comentarios():
 
 
 # ============================================================
-# PÁGINA 4: SEGMENTACIÓN 3B - VERSIÓN MEJORADA
+# PÁGINA 4: SEGMENTACIÓN 3B - SIN GRÁFICO PCA
 # ============================================================
 
 def segmentos():
@@ -1548,11 +1450,9 @@ def segmentos():
     )
 
     if df is None:
-
         aviso_archivo(
             "segmentacion_vendedores.csv"
         )
-
         return
 
     segmento = buscar(
@@ -1563,11 +1463,9 @@ def segmentos():
     )
 
     if segmento is None:
-
         st.error(
             "El CSV no contiene la columna segmento."
         )
-
         return
 
     identificador = buscar(
@@ -1586,17 +1484,13 @@ def segmentos():
     ]
 
     for campo in campos:
-
         if campo in trabajo.columns:
-
             trabajo[campo] = pd.to_numeric(
                 trabajo[campo],
                 errors="coerce",
             )
 
-    # --------------------------------------------------------
-    # INDICADORES GENERALES
-    # --------------------------------------------------------
+    # Indicadores generales
 
     a, b = st.columns(2)
 
@@ -1616,9 +1510,7 @@ def segmentos():
         ),
     )
 
-    # --------------------------------------------------------
-    # DISTRIBUCIÓN DE VENDEDORES
-    # --------------------------------------------------------
+    # Distribución de vendedores
 
     st.subheader(
         "Distribución de vendedores"
@@ -1658,9 +1550,7 @@ def segmentos():
         use_container_width=True,
     )
 
-    # --------------------------------------------------------
-    # PERFILES CUANTITATIVOS
-    # --------------------------------------------------------
+    # Perfiles cuantitativos
 
     faltan = [
         c
@@ -1710,9 +1600,7 @@ def segmentos():
             use_container_width=True,
         )
 
-        # ----------------------------------------------------
-        # GRÁFICO COMPARATIVO CORREGIDO
-        # ----------------------------------------------------
+        # Comparación de indicadores
 
         st.markdown(
             "#### Comparación de indicadores"
@@ -1773,9 +1661,7 @@ def segmentos():
             "y porcentajes en una misma escala."
         )
 
-        # ----------------------------------------------------
-        # NOMBRES Y ACCIONES POR SEGMENTO
-        # ----------------------------------------------------
+        # Nombres y acciones por segmento
 
         st.subheader(
             "Nombres, perfiles y acciones por segmento"
@@ -1825,14 +1711,9 @@ def segmentos():
         for grupo, fila in perfiles.iterrows():
 
             try:
-
                 clave = int(grupo)
 
-            except (
-                ValueError,
-                TypeError,
-            ):
-
+            except (ValueError, TypeError):
                 clave = None
 
             nombre, accion = nombres.get(
@@ -1864,9 +1745,7 @@ def segmentos():
 
         for item in registros:
 
-            with st.container(
-                border=True
-            ):
+            with st.container(border=True):
 
                 st.markdown(
                     f"**Segmento {item['Segmento']} "
@@ -1882,96 +1761,12 @@ def segmentos():
                     + item["Acción recomendada"]
                 )
 
-    # --------------------------------------------------------
-    # VISUALIZACIÓN PCA
-    # --------------------------------------------------------
+    # ========================================================
+    # GRÁFICO PCA ELIMINADO DE STREAMLIT
+    # El análisis PCA permanece en el notebook de Colab.
+    # ========================================================
 
-    st.subheader(
-        "Visualización de grupos (PCA)"
-    )
-
-    pc1 = buscar(
-        df,
-        "pca_1",
-        "pc1",
-        "componente_1",
-        "pca1",
-    )
-
-    pc2 = buscar(
-        df,
-        "pca_2",
-        "pc2",
-        "componente_2",
-        "pca2",
-    )
-
-    if pc1 and pc2:
-
-        puntos = df.copy()
-
-        puntos[pc1] = pd.to_numeric(
-            puntos[pc1],
-            errors="coerce",
-        )
-
-        puntos[pc2] = pd.to_numeric(
-            puntos[pc2],
-            errors="coerce",
-        )
-
-        puntos = puntos.dropna(
-            subset=[
-                pc1,
-                pc2,
-            ]
-        )
-
-        puntos["_grupo"] = (
-            puntos[segmento].astype(str)
-        )
-
-        fig = px.scatter(
-            puntos,
-            x=pc1,
-            y=pc2,
-            color="_grupo",
-            hover_data=(
-                [identificador]
-                if identificador
-                else None
-            ),
-            labels={
-                "_grupo": "Segmento",
-                pc1: "Componente principal 1",
-                pc2: "Componente principal 2",
-            },
-            opacity=0.65,
-        )
-
-        st.plotly_chart(
-            fig,
-            use_container_width=True,
-        )
-
-        st.caption(
-            "Proyección PCA calculada previamente "
-            "y exportada desde el notebook."
-        )
-
-    else:
-
-        st.info(
-            "La visualización PCA requiere las "
-            "coordenadas reales del notebook. "
-            "Para activarla, agrega las columnas "
-            "pca_1 y pca_2 al CSV de vendedores. "
-            "No se generan coordenadas artificiales."
-        )
-
-    # --------------------------------------------------------
-    # EXPLORADOR DE VENDEDORES
-    # --------------------------------------------------------
+    # Explorador de vendedores
 
     st.subheader(
         "Explorador de vendedores"
@@ -2281,9 +2076,9 @@ def plus():
     )
 
     st.write(
-        "Entrada de 140 características, capa "
-        "densa de 64 neuronas ReLU, capa densa "
-        "de 32 neuronas ReLU y salida sigmoide."
+        "Entrada de 140 características, capa densa "
+        "de 64 neuronas ReLU, capa densa de 32 "
+        "neuronas ReLU y salida sigmoide."
     )
 
     st.write(
@@ -2299,8 +2094,9 @@ def plus():
     st.write(
         "Los resultados fueron cercanos. "
         "XGBoost presentó una ventaja pequeña "
-        "en la precisión Top 10% de esta comparación, "
-        "por lo que se mantuvo como modelo de la API."
+        "en la precisión Top 10% de esta "
+        "comparación, por lo que se mantuvo "
+        "como modelo de la API."
     )
 
     st.caption(
@@ -2326,7 +2122,6 @@ def ficha():
     )
 
     if texto:
-
         st.markdown(texto)
 
         st.download_button(
@@ -2343,10 +2138,10 @@ def ficha():
     )
 
     st.write(
-        "El modelo estima la probabilidad de "
-        "que un pedido reciba una reseña de "
-        "1 o 2 estrellas y permite priorizar "
-        "casos para su revisión."
+        "El modelo estima la probabilidad de que "
+        "un pedido reciba una reseña de 1 o 2 "
+        "estrellas y permite priorizar casos "
+        "para su revisión."
     )
 
     st.subheader(
@@ -2355,9 +2150,8 @@ def ficha():
 
     st.write(
         "El proyecto utiliza información histórica "
-        "del conjunto de datos Olist. "
-        "La validación principal reportada "
-        "incluye 15,461 pedidos."
+        "del conjunto de datos Olist. La validación "
+        "principal reportada incluye 15,461 pedidos."
     )
 
     st.subheader(
@@ -2365,11 +2159,9 @@ def ficha():
     )
 
     st.write(
-        "Precisión Top 10% reportada: "
-        "XGBoost 49.48%, "
-        "regresión logística 45.99%, "
-        "regla del retraso 38.55% "
-        "y selección aleatoria 11.89%."
+        "Precisión Top 10% reportada: XGBoost 49.48%, "
+        "regresión logística 45.99%, regla del retraso "
+        "38.55% y selección aleatoria 11.89%."
     )
 
     st.subheader(
@@ -2377,18 +2169,17 @@ def ficha():
     )
 
     st.write(
-        "El rendimiento puede cambiar ante "
-        "nuevas condiciones de entrega, "
-        "categorías poco representadas "
-        "o diferencias entre los datos "
-        "históricos y los pedidos futuros."
+        "El rendimiento puede cambiar ante nuevas "
+        "condiciones de entrega, categorías poco "
+        "representadas o diferencias entre los "
+        "datos históricos y los pedidos futuros."
     )
 
     st.write(
-        "El modelo utiliza la fecha real "
-        "de entrega. Por ello, no puede "
-        "presentarse como una predicción "
-        "disponible antes de entregar el pedido."
+        "El modelo utiliza la fecha real de entrega. "
+        "Por ello, no puede presentarse como una "
+        "predicción disponible antes de entregar "
+        "el pedido."
     )
 
     st.subheader(
@@ -2396,11 +2187,11 @@ def ficha():
     )
 
     st.write(
-        "Un falso positivo puede ocasionar "
-        "un seguimiento innecesario, mientras "
-        "que un falso negativo puede dejar "
-        "sin atención prioritaria a un "
-        "cliente insatisfecho."
+        "Un falso positivo puede ocasionar un "
+        "seguimiento innecesario, mientras que "
+        "un falso negativo puede dejar sin "
+        "atención prioritaria a un cliente "
+        "insatisfecho."
     )
 
     st.subheader(
