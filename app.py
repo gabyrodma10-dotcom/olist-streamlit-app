@@ -1,402 +1,288 @@
-
-import json
-import time
-from requests.exceptions import Timeout, ConnectionError as APIConnectionError, RequestException
 from pathlib import Path
+import json
 import pandas as pd
+import numpy as np
 import plotly.express as px
-import requests
 import streamlit as st
+import requests
 
-st.set_page_config(page_title='Olist | Inteligencia de reseñas', page_icon='📊', layout='wide')
-ROOT = Path(__file__).resolve().parent
-st.markdown('''<style>.block-container{padding-top:2rem;max-width:1200px}h1,h2{letter-spacing:-.025em}[data-testid="stMetric"]{background:rgba(128,128,128,.06);padding:18px;border-radius:12px;border:1px solid rgba(128,128,128,.15)}div.stButton>button[kind=primary]{border-radius:10px}section[data-testid="stSidebar"]{border-right:1px solid rgba(128,128,128,.12)}</style>''', unsafe_allow_html=True)
+st.set_page_config(page_title='Olist | Inteligencia de reseñas',page_icon='📊',layout='wide')
+ROOT=Path(__file__).resolve().parent
+API_DEFAULT='https://api-olist-riesgo.onrender.com'
 
-@st.cache_data
-def leer(nombre):
-    return pd.read_csv(ROOT / nombre, encoding='utf-8-sig')
+st.markdown('''<style>.block-container{max-width:1250px;padding-top:1.6rem}h1,h2,h3{letter-spacing:-.02em}[data-testid="stMetric"]{border:1px solid rgba(120,120,120,.22);padding:16px;border-radius:12px;background:rgba(120,120,120,.045)}section[data-testid="stSidebar"]{border-right:1px solid rgba(120,120,120,.15)}</style>''',unsafe_allow_html=True)
 
-def columna(df, *opciones):
-    normal = {str(c).lower().strip(): c for c in df.columns}
-    for o in opciones:
-        if o.lower() in normal:
-            return normal[o.lower()]
-    for c in df.columns:
-        if any(o.lower() in str(c).lower() for o in opciones):
-            return c
+@st.cache_data(show_spinner=False)
+def cargar_csv(nombre):
+    ruta=ROOT/nombre
+    if not ruta.exists(): return None
+    return pd.read_csv(ruta,encoding='utf-8-sig',low_memory=False)
+
+def archivo_texto(nombre):
+    ruta=ROOT/nombre
+    return ruta.read_text(encoding='utf-8') if ruta.exists() else None
+
+def buscar(df,*nombres):
+    if df is None:return None
+    cols={str(c).strip().lower():c for c in df.columns}
+    for nombre in nombres:
+        if nombre.lower() in cols:return cols[nombre.lower()]
     return None
 
-def datos():
-    try:
-        return leer('segmentacion_vendedores.csv'), leer('sentimiento_comentarios.csv')
-    except Exception as e:
-        st.error(f'No se pudieron leer los CSV del repositorio: {e}')
-        st.stop()
+def titulo(nombre,descripcion):
+    st.title(nombre)
+    st.caption(descripcion)
 
-def titulo(t, sub):
-    st.title(t)
-    st.caption(sub)
+def csv_descarga(df,nombre,etiqueta):
+    st.download_button(etiqueta,df.to_csv(index=False).encode('utf-8-sig'),nombre,mime='text/csv')
+
+def aviso_archivo(nombre):
+    st.warning(f'Falta **{nombre}** en el repositorio de GitHub. Agrégalo para habilitar esta sección.')
+
+def api_url():
+    try:return str(st.secrets.get('API_URL',API_DEFAULT)).rstrip('/')
+    except Exception:return API_DEFAULT
+
+EJEMPLOS={
+    'Riesgo bajo (entrega puntual)':{
+        'order_id':'PRUEBA_001','order_purchase_timestamp':'2018-05-01T10:00:00',
+        'order_approved_at':'2018-05-01T11:00:00','order_delivered_carrier_date':'2018-05-03T09:00:00',
+        'order_delivered_customer_date':'2018-05-08T15:00:00','order_estimated_delivery_date':'2018-05-12T00:00:00',
+        'estado_cliente':'SP','n_items':1,'n_vendedores':1,'precio_total':120.0,'flete_total':15.0,
+        'peso_total_g':500.0,'fotos_promedio':2.0,'categoria':'beleza_saude',
+        'estado_vendedor':'SP','tipo_pago':'credit_card','cuotas_max':3},
+    'Riesgo alto (entrega tardía)':{
+        'order_id':'PRUEBA_002','order_purchase_timestamp':'2018-05-01T10:00:00',
+        'order_approved_at':'2018-05-01T11:00:00','order_delivered_carrier_date':'2018-05-10T09:00:00',
+        'order_delivered_customer_date':'2018-05-20T18:00:00','order_estimated_delivery_date':'2018-05-12T00:00:00',
+        'estado_cliente':'SP','n_items':1,'n_vendedores':1,'precio_total':120.0,'flete_total':15.0,
+        'peso_total_g':500.0,'fotos_promedio':2.0,'categoria':'beleza_saude',
+        'estado_vendedor':'SP','tipo_pago':'credit_card','cuotas_max':3},
+}
+
 
 def inicio():
-    titulo('📊 Olist | Inteligencia de reseñas',
-           'Proyecto final · Riesgo, sentimiento y segmentación de vendedores')
-    v, c = datos()
-    a, b, d = st.columns(3)
-    a.metric('Registros de segmentación', f'{len(v):,}')
-    b.metric('Comentarios analizados', f'{len(c):,}')
-    d.metric('Módulos analíticos', '3')
-    st.markdown('### ¿Qué resuelve este proyecto?')
-    st.write('Integra un modelo de riesgo de malas reseñas (XGBoost), análisis de sentimientos de comentarios y segmentación de vendedores (opción 3B).')
-    st.info('Los indicadores muestran los registros de los archivos cargados; no representan necesariamente el total del conjunto Olist.')
-    st.markdown('### Flujo de trabajo')
-    st.write('**Pedido → API de riesgo → probabilidad y alerta** · **Comentarios → sentimiento vs. estrellas** · **Vendedores → segmentos y perfiles**')
+    titulo('📊 Olist | Inteligencia de reseñas','Proyecto final · Análisis predictivo, comentarios y segmentación')
+    vendedores=cargar_csv('segmentacion_vendedores.csv')
+    comentarios=cargar_csv('sentimiento_comentarios.csv')
+    a,b,c=st.columns(3)
+    a.metric('Vendedores registrados',f'{len(vendedores):,}' if vendedores is not None else 'Sin archivo')
+    b.metric('Comentarios registrados',f'{len(comentarios):,}' if comentarios is not None else 'Sin archivo')
+    c.metric('Módulos analíticos','3')
+    st.subheader('¿Qué problema resolvemos?')
+    st.write('Olist necesita priorizar la atención a pedidos con riesgo de recibir una reseña de 1 o 2 estrellas. La solución integra predicción de riesgo, análisis del sentimiento de los comentarios y agrupación de vendedores con características similares.')
+    st.info('La capacidad operativa planteada en la guía es contactar al 10% de pedidos de mayor riesgo. Una predicción es una ayuda para priorizar, no una decisión automática sobre clientes o vendedores.')
+    st.subheader('Componentes de la solución')
+    st.markdown('**Predicción:** pipeline XGBoost servido mediante FastAPI en Render.  \n**Comentarios:** resultados del modelo de sentimiento contrastados con estrellas.  \n**Vendedores:** segmentación K-Means y propuestas de mejora por grupo.')
+    st.subheader('Disponibilidad de archivos')
+    for nombre in ['segmentacion_vendedores.csv','sentimiento_comentarios.csv','perfiles_segmentos.csv','desacuerdos_analizados.csv','conclusion_comentarios.md','ficha_modelo.md']:
+        st.write(('✅ ' if (ROOT/nombre).exists() else '⚪ ')+nombre)
+
 
 def riesgo():
-    titulo('⚠️ Riesgo de una mala reseña',
-           'Predicción en vivo mediante FastAPI y XGBoost desplegados en Render')
-    try:
-        api = st.secrets.get('API_URL', '')
-    except Exception:
-        api = ''
-    if not api:
-        st.warning('Configura API_URL en los Secrets de Streamlit Community Cloud para activar las predicciones.')
-        st.code('API_URL = "https://api-olist-riesgo.onrender.com"', language='toml')
-        return
-
-    ejemplo = {
-        'order_id': 'pedido_prueba_001',
-        'order_purchase_timestamp': '2018-05-10T10:00:00',
-        'order_approved_at': '2018-05-10T11:00:00',
-        'order_delivered_carrier_date': '2018-05-12T09:00:00',
-        'order_delivered_customer_date': '2018-05-20T14:00:00',
-        'order_estimated_delivery_date': '2018-05-18T00:00:00',
-        'estado_cliente': 'SP',
-        'n_items': 2,
-        'n_vendedores': 1,
-        'precio_total': 150.0,
-        'flete_total': 20.0,
-        'peso_total_g': 1200.0,
-        'fotos_promedio': 3.0,
-        'categoria': 'beleza_saude',
-        'estado_vendedor': 'SP',
-        'tipo_pago': 'credit_card',
-        'cuotas_max': 3
-    }
-
-    st.markdown('#### Selecciona o edita un pedido')
-    if 'pedidos_ejemplo.csv' in [p.name for p in ROOT.iterdir()]:
-        try:
-            muestra = leer('pedidos_ejemplo.csv')
-            idx = st.selectbox(
-                'Pedido de muestra',
-                range(len(muestra)),
-                format_func=lambda i: str(muestra.iloc[i].get('order_id', f'Pedido {i+1}'))
-            )
-            candidato = muestra.iloc[idx].where(muestra.iloc[idx].notna(), None).to_dict()
-            ejemplo = {
-                k: (v.isoformat() if hasattr(v, 'isoformat')
-                    else v.item() if hasattr(v, 'item') else v)
-                for k, v in candidato.items()
-            }
-        except Exception as e:
-            st.warning(f'No se pudo leer la muestra: {e}')
+    titulo('⚠️ Predicción de riesgo','Consulta en vivo al servicio FastAPI desplegado en Render')
+    st.write('Prueba un pedido válido, modifica sus datos o envía un JSON propio. La API verifica los campos y devuelve la probabilidad estimada de una mala reseña.')
+    modo=st.radio('Modo de prueba',['Ejemplo guiado','JSON editable'],horizontal=True)
+    ejemplo=st.selectbox('Caso de demostración',list(EJEMPLOS))
+    datos=EJEMPLOS[ejemplo].copy()
+    if modo=='Ejemplo guiado':
+        with st.form('formulario_riesgo'):
+            a,b=st.columns(2)
+            with a:
+                datos['order_id']=st.text_input('ID del pedido',datos['order_id'])
+                datos['estado_cliente']=st.text_input('Estado del cliente',datos['estado_cliente'])
+                datos['estado_vendedor']=st.text_input('Estado del vendedor',datos['estado_vendedor'])
+                datos['categoria']=st.text_input('Categoría',datos['categoria'])
+                datos['tipo_pago']=st.text_input('Tipo de pago',datos['tipo_pago'])
+                datos['n_items']=st.number_input('Número de artículos',min_value=0,value=int(datos['n_items']))
+                datos['n_vendedores']=st.number_input('Número de vendedores',min_value=0,value=int(datos['n_vendedores']))
+                datos['cuotas_max']=st.number_input('Cuotas máximas',min_value=0.0,value=float(datos['cuotas_max']))
+            with b:
+                for campo,etiqueta in [('order_purchase_timestamp','Fecha de compra'),('order_approved_at','Fecha de aprobación'),('order_delivered_carrier_date','Fecha entregada al transportista'),('order_delivered_customer_date','Fecha de entrega al cliente'),('order_estimated_delivery_date','Fecha estimada de entrega')]:
+                    datos[campo]=st.text_input(etiqueta+' (AAAA-MM-DDTHH:MM:SS)',datos[campo])
+                for campo,etiqueta in [('precio_total','Precio total'),('flete_total','Flete total'),('peso_total_g','Peso total (g)'),('fotos_promedio','Promedio de fotos')]:
+                    datos[campo]=st.number_input(etiqueta,min_value=0.0,value=float(datos[campo]))
+            enviar=st.form_submit_button('Calcular riesgo',type='primary')
     else:
-        st.caption('Puedes editar el pedido de ejemplo. Para seleccionar pedidos reales, agrega pedidos_ejemplo.csv al repositorio.')
-
-    with st.expander('¿Qué datos se envían al modelo?', expanded=False):
-        st.write('El pedido contiene fechas, estado del cliente, productos, vendedores, precios, flete y pago. No modifiques los nombres de las variables.')
-
-    texto = st.text_area(
-        'Datos del pedido (JSON con las 17 columnas del contrato)',
-        json.dumps(ejemplo, indent=2, ensure_ascii=False),
-        height=420
-    )
-    st.caption('La respuesta es una estimación estadística; no una certeza sobre la opinión del cliente.')
-
-    if st.button('Calcular riesgo', type='primary'):
+        st.caption('Para comprobar el error HTTP 422 puedes poner un precio negativo o eliminar un campo obligatorio.')
+        texto=st.text_area('Cuerpo JSON',value=json.dumps(datos,indent=2,ensure_ascii=False),height=450)
+        enviar=st.button('Enviar JSON a la API',type='primary')
+        if enviar:
+            try:datos=json.loads(texto)
+            except json.JSONDecodeError as exc:
+                st.error(f'El texto no es un JSON válido: {exc}')
+                return
+    if not enviar:return
+    with st.spinner('Consultando API. Render puede tardar aproximadamente un minuto en despertar...'):
         try:
-            payload = json.loads(texto)
-            if not isinstance(payload, dict):
-                raise ValueError('El cuerpo debe ser un objeto JSON.')
+            respuesta=requests.post(api_url()+'/riesgo',json=datos,timeout=100)
+        except requests.exceptions.Timeout:
+            st.error('La API tardó demasiado en responder. Espera un momento y vuelve a intentarlo.');return
+        except requests.exceptions.RequestException as exc:
+            st.error('No se pudo conectar con la API. Comprueba el despliegue en Render.');st.caption(str(exc));return
+    st.caption(f'Código HTTP: {respuesta.status_code}')
+    if respuesta.status_code==422:
+        st.warning('La API rechazó el pedido por un error de validación (HTTP 422).')
+        try:st.json(respuesta.json())
+        except ValueError:st.code(respuesta.text)
+        return
+    if not respuesta.ok:
+        st.error(f'La API devolvió HTTP {respuesta.status_code}.')
+        st.code(respuesta.text[:1500]);return
+    try:resultado=respuesta.json()
+    except ValueError:st.error('La respuesta no contiene JSON válido.');return
+    prob=resultado.get('probabilidad')
+    alto=resultado.get('riesgo_alto')
+    if prob is None:
+        st.error('La API respondió, pero no incluyó la probabilidad esperada.');st.json(resultado);return
+    st.metric('Probabilidad estimada de mala reseña',f'{float(prob):.2%}')
+    if alto is True:st.error('Riesgo alto: considerar seguimiento prioritario por atención al cliente.')
+    elif alto is False:st.success('Riesgo no alto según el umbral configurado en la API.')
+    else:st.info('La API no devolvió una clasificación de riesgo alto/bajo.')
+    st.caption('La probabilidad no garantiza el resultado. El umbral se administra en FastAPI; no se modifica desde esta app.')
+    with st.expander('Respuesta completa de la API'):st.json(resultado)
 
-            obligatorios = [
-                'order_id', 'order_purchase_timestamp',
-                'order_estimated_delivery_date', 'estado_cliente',
-                'n_items', 'n_vendedores', 'precio_total',
-                'flete_total', 'fotos_promedio', 'categoria',
-                'estado_vendedor', 'tipo_pago', 'cuotas_max'
-            ]
-            faltantes = [x for x in obligatorios if x not in payload]
-            if faltantes:
-                raise ValueError('Faltan campos obligatorios: ' + ', '.join(faltantes))
-
-            with st.spinner('Consultando API (Render puede tardar en activarse)...'):
-                r = requests.post(
-                    api.rstrip('/') + '/riesgo',
-                    json=payload,
-                    timeout=120
-                )
-
-            if r.status_code == 422:
-                st.error('El pedido no cumple el contrato de la API (HTTP 422). Comprueba campos, fechas y valores.')
-                with st.expander('Detalle de validación'):
-                    try:
-                        st.json(r.json())
-                    except ValueError:
-                        st.code(r.text[:1500])
-                return
-
-            if r.status_code != 200:
-                st.error(f'La API respondió HTTP {r.status_code}. Intenta de nuevo o revisa el estado de Render.')
-                with st.expander('Detalle técnico'):
-                    st.code(r.text[:1500])
-                return
-
-            resultado = r.json()
-            p = resultado.get('probabilidad')
-            alto = resultado.get('riesgo_alto')
-
-            if p is None or not isinstance(alto, bool):
-                st.error('La API devolvió una respuesta incompleta.')
-                st.json(resultado)
-                return
-
-            if not 0 <= float(p) <= 1:
-                raise ValueError('La API devolvió una probabilidad fuera del intervalo [0,1].')
-
-            st.metric('Probabilidad estimada de mala reseña', f'{float(p):.2%}')
-            st.progress(min(max(float(p), 0), 1))
-
-            if alto:
-                st.error('Riesgo alto según el umbral del modelo: priorizar seguimiento.')
-            else:
-                st.success('Riesgo no alto según el umbral del modelo.')
-
-            st.json(resultado)
-
-        except (ValueError, json.JSONDecodeError) as e:
-            st.error(f'JSON inválido: {e}')
-        except Timeout:
-            st.error('La API tardó demasiado en responder. En el plan gratuito de Render puede necesitar tiempo para activarse. Espera un momento y vuelve a intentar.')
-        except APIConnectionError:
-            st.error('No se pudo conectar con la API. Verifica tu conexión y que el servicio de Render esté activo.')
-        except RequestException as e:
-            st.error('Ocurrió un problema de comunicación con la API.')
-            with st.expander('Detalle técnico'):
-                st.code(str(e))
-        except Exception as e:
-            st.error(f'Error inesperado: {e}')
 
 def comentarios():
-    titulo('💬 Sentimiento de los comentarios',
-           'Parte 4 · Comparación entre calificación y modelo de lenguaje')
-    _, df = datos()
-    estrellas = columna(df, 'review_score')
-    sent = columna(df, 'sentimiento_modelo')
+    titulo('💬 Análisis de comentarios','Resultados del modelo de sentimiento comparados con las estrellas')
+    df=cargar_csv('sentimiento_comentarios.csv')
+    if df is None:aviso_archivo('sentimiento_comentarios.csv');return
+    st.metric('Registros en archivo',f'{len(df):,}')
+    st.caption('Columnas disponibles: '+', '.join(map(str,df.columns)))
+    estrella=buscar(df,'review_score','estrellas','puntuacion','calificacion')
+    sentimiento=buscar(df,'sentimiento','sentiment','sentiment_label','etiqueta_sentimiento','prediccion_sentimiento')
+    if sentimiento:
+        st.subheader('Distribución de sentimientos')
+        conteo=df[sentimiento].fillna('Sin etiqueta').astype(str).value_counts().reset_index()
+        conteo.columns=['Sentimiento','Comentarios']
+        st.plotly_chart(px.bar(conteo,x='Sentimiento',y='Comentarios',color='Sentimiento'),use_container_width=True)
+    else:st.warning('No se identificó una columna de sentimiento. Revisa los nombres de las columnas del CSV.')
+    if estrella and sentimiento:
+        st.subheader('Sentimiento frente a estrellas')
+        tabla=pd.crosstab(df[estrella],df[sentimiento],dropna=False)
+        st.dataframe(tabla,use_container_width=True)
+        st.plotly_chart(px.imshow(tabla,text_auto=True,aspect='auto',labels={'x':'Sentimiento','y':'Estrellas','color':'Comentarios'}),use_container_width=True)
+        st.caption('La tabla cruzada muestra cantidades; no implica que las estrellas y el texto siempre coincidan.')
+    coincidencia=buscar(df,'coincide','coincidencia','acuerdo','match')
+    if coincidencia:
+        serie=df[coincidencia].dropna()
+        if pd.api.types.is_bool_dtype(serie) or set(serie.astype(str).str.lower().unique()).issubset({'true','false','0','1'}):
+            porcentaje=serie.astype(str).str.lower().isin(['true','1']).mean()
+            st.metric('Coincidencia texto-estrellas',f'{porcentaje:.2%}')
+        else:st.info('La columna de coincidencia existe, pero requiere verificar su codificación antes de calcular el porcentaje.')
+    else:st.info('El porcentaje de coincidencia debe calcularse con la definición utilizada en el notebook; no se infiere automáticamente de etiquetas desconocidas.')
+    st.subheader('Cinco desacuerdos interpretados')
+    desacuerdos=cargar_csv('desacuerdos_analizados.csv')
+    if desacuerdos is not None:
+        st.dataframe(desacuerdos,use_container_width=True)
+        if len(desacuerdos)<5:st.warning('La rúbrica requiere al menos cinco desacuerdos analizados.')
+    else:st.warning('Pendiente: subir desacuerdos_analizados.csv con cinco casos reales y su interpretación.')
+    st.subheader('¿Qué aporta el texto frente a las estrellas?')
+    conclusion=archivo_texto('conclusion_comentarios.md')
+    if conclusion:st.markdown(conclusion)
+    else:st.warning('Pendiente: agregar conclusion_comentarios.md con la conclusión basada en los resultados del notebook.')
+    with st.expander('Explorar comentarios'):
+        st.dataframe(df.head(500),use_container_width=True)
+        csv_descarga(df,'sentimiento_comentarios.csv','Descargar comentarios')
 
-    a, b = st.columns(2)
-    a.metric('Comentarios procesados', f'{len(df):,}')
-
-    if sent:
-        distribucion = (
-            df[sent].fillna('Sin clasificar').astype(str)
-            .value_counts().rename_axis('Sentimiento')
-            .reset_index(name='Cantidad')
-        )
-        fig = px.bar(
-            distribucion, x='Sentimiento', y='Cantidad',
-            color='Sentimiento', title='Distribución de sentimiento'
-        )
-        st.plotly_chart(fig, use_container_width=True)
-
-    if estrellas and sent:
-        base = df[[estrellas, sent]].dropna().copy()
-        tabla = pd.crosstab(base[estrellas], base[sent])
-
-        st.subheader('Tabla cruzada: estrellas × sentimiento')
-        st.dataframe(tabla, use_container_width=True)
-
-        st.caption('Porcentaje de cada fila (dentro de cada calificación de estrellas)')
-        porcentajes = (
-            tabla.div(
-                tabla.sum(axis=1).replace(0, float('nan')),
-                axis=0
-            ).mul(100).round(1).fillna(0)
-        )
-        st.dataframe(porcentajes, use_container_width=True)
-
-        fig = px.imshow(
-            tabla, text_auto=True, aspect='auto',
-            labels={
-                'x': 'Sentimiento',
-                'y': 'Estrellas',
-                'color': 'Comentarios'
-            }
-        )
-        st.plotly_chart(fig, use_container_width=True)
-
-        st.markdown('#### Coincidencia y desacuerdos')
-        st.caption('Criterio operativo: 1–2 estrellas = negativo, 3 = neutral, 4–5 = positivo. Verifica que las etiquetas del modelo correspondan a estas categorías.')
-
-        etiquetas = {
-            1: 'negativo', 2: 'negativo',
-            3: 'neutral', 4: 'positivo', 5: 'positivo'
-        }
-        esperado = pd.to_numeric(
-            base[estrellas], errors='coerce'
-        ).map(etiquetas)
-        observado = base[sent].astype(str).str.lower().str.strip()
-        validos = observado.isin(
-            ['positivo', 'negativo', 'neutral']
-        ) & esperado.notna()
-
-        if validos.any():
-            coinciden = (esperado[validos] == observado[validos])
-            b.metric('Coincidencia estrellas/sentimiento', f'{coinciden.mean():.1%}')
-
-            idx = base.loc[validos].index[~coinciden]
-            st.write(f'Desacuerdos identificados: **{len(idx)}**')
-            desacuerdos = df.loc[idx].copy()
-            st.dataframe(desacuerdos.head(30), use_container_width=True)
-
-            st.download_button(
-                'Descargar desacuerdos',
-                desacuerdos.to_csv(index=False).encode('utf-8-sig'),
-                'desacuerdos_olist.csv', 'text/csv'
-            )
-
-            if len(idx) >= 5:
-                st.info('La rúbrica exige leer y clasificar cinco casos como error del modelo o del cliente. Añade esas interpretaciones verificadas en desacuerdos_analizados.csv.')
-                ruta = ROOT / 'desacuerdos_analizados.csv'
-                if ruta.exists():
-                    try:
-                        revisados = leer('desacuerdos_analizados.csv')
-                        st.subheader('Cinco casos revisados por el equipo')
-                        st.dataframe(revisados, use_container_width=True)
-                        if len(revisados) < 5:
-                            st.warning('Faltan casos revisados para llegar a cinco.')
-                    except Exception as e:
-                        st.warning(f'No se pudo cargar el análisis de casos: {e}')
-            else:
-                st.warning('Hay menos de cinco desacuerdos bajo este criterio.')
-        else:
-            st.warning('Las etiquetas no son positivo/negativo/neutral. Ajusta su equivalencia antes de calcular coincidencia.')
-    else:
-        st.warning('No se identificaron review_score y sentimiento_modelo. Revisa las columnas del CSV.')
-
-    st.subheader('Explorar comentarios')
-    st.dataframe(df, use_container_width=True)
-    st.download_button(
-        'Descargar resultados',
-        df.to_csv(index=False).encode('utf-8-sig'),
-        'sentimiento_comentarios.csv', 'text/csv'
-    )
-
-    ruta_conclusion = ROOT / 'conclusion_comentarios.md'
-    if ruta_conclusion.exists():
-        st.subheader('¿Qué aporta el texto que no muestran las estrellas?')
-        st.markdown(ruta_conclusion.read_text(encoding='utf-8'))
-    else:
-        st.info('Pendiente de documentar con evidencia: conclusión sobre qué aporta el texto frente a las estrellas (conclusion_comentarios.md).')
 
 def segmentos():
-    titulo('👥 Segmentación de vendedores',
-           'Parte 3B · Exploración de segmentos obtenidos mediante KMeans')
-    df, _ = datos()
-    seg = columna(df, 'segmento', 'cluster', 'grupo')
-
-    if not seg:
-        st.warning('No se detectó una columna de segmento.')
-        st.write('Columnas:', df.columns.tolist())
-        st.dataframe(df)
-        return
-
-    st.metric('Segmentos identificados', df[seg].nunique())
-
-    conteo = (
-        df[seg].fillna('Sin asignar').astype(str)
-        .value_counts().rename_axis('Segmento')
-        .reset_index(name='Vendedores')
-    )
-    st.plotly_chart(
-        px.bar(
-            conteo, x='Segmento', y='Vendedores',
-            color='Segmento', title='Tamaño de cada segmento'
-        ),
-        use_container_width=True
-    )
-
-    numericas = [
-        c for c in df.select_dtypes(include='number').columns
-        if c != seg and df[c].notna().any()
-    ]
-
+    titulo('👥 Segmentación de vendedores','Agrupación K-Means · Parte 3B')
+    df=cargar_csv('segmentacion_vendedores.csv')
+    if df is None:aviso_archivo('segmentacion_vendedores.csv');return
+    seg=buscar(df,'segmento','cluster','segment')
+    if seg is None:st.error('El CSV no contiene la columna segmento.');return
+    identificador=buscar(df,'seller_id')
+    st.metric('Segmentos identificados',str(df[seg].nunique()))
+    st.metric('Vendedores en archivo',f'{df[identificador].nunique():,}' if identificador else f'{len(df):,}')
+    tam=df.groupby(seg,dropna=False).size().rename('Vendedores').reset_index()
+    st.subheader('Tamaño de cada segmento')
+    st.plotly_chart(px.bar(tam,x=seg,y='Vendedores',color=seg,text='Vendedores',title='Distribución de vendedores por segmento'),use_container_width=True)
     st.subheader('Perfiles cuantitativos por segmento')
+    excluir={seg,identificador}
+    numericas=[]
+    trabajo=df.copy()
+    for col in df.columns:
+        if col in excluir:continue
+        convertido=pd.to_numeric(df[col],errors='coerce')
+        if convertido.notna().sum()>=max(5,int(len(df)*0.5)):
+            trabajo[col]=convertido
+            numericas.append(col)
     if numericas:
-        cols = st.multiselect(
-            'Variables para comparar',
-            numericas,
-            default=numericas[:min(5, len(numericas))]
-        )
-        if cols:
-            perfiles = df.groupby(seg, dropna=False)[cols].mean().round(2)
-            st.dataframe(perfiles, use_container_width=True)
-            grafico = perfiles.reset_index().melt(
-                id_vars=seg,
-                var_name='Variable',
-                value_name='Promedio'
-            )
-            st.plotly_chart(
-                px.bar(
-                    grafico, x=seg, y='Promedio',
-                    color='Variable', barmode='group',
-                    title='Promedios por segmento'
-                ),
-                use_container_width=True
-            )
-    else:
-        st.warning('No se encontraron variables numéricas para calcular perfiles.')
-
+        elegidas=st.multiselect('Indicadores para comparar',numericas,default=numericas[:min(5,len(numericas))])
+        if elegidas:
+            perfiles=trabajo.groupby(seg)[elegidas].mean().round(3)
+            st.dataframe(perfiles,use_container_width=True)
+            largo=perfiles.reset_index().melt(id_vars=seg,var_name='Indicador',value_name='Promedio')
+            st.plotly_chart(px.bar(largo,x=seg,y='Promedio',color='Indicador',barmode='group'),use_container_width=True)
+            st.caption('Los indicadores tienen unidades diferentes: comparar principalmente un mismo indicador entre segmentos.')
+    else:st.warning('No se encontraron indicadores numéricos utilizables en el archivo. Revisa que el CSV actualizado esté publicado.')
     st.subheader('Nombres y acciones por segmento')
-    st.info('La rúbrica pide nombres interpretables y acciones para cada segmento. Añade las conclusiones REALES del notebook en un archivo perfiles_segmentos.csv con columnas: segmento,nombre,perfil,accion.')
+    perfiles_csv=cargar_csv('perfiles_segmentos.csv')
+    if perfiles_csv is not None:
+        requeridas={'segmento','nombre','perfil','accion'}
+        if not requeridas.issubset(perfiles_csv.columns):
+            st.error('perfiles_segmentos.csv necesita las columnas: segmento, nombre, perfil, accion.')
+        else:
+            st.dataframe(perfiles_csv[['segmento','nombre','perfil','accion']],use_container_width=True)
+            faltantes=set(df[seg].astype(str).unique())-set(perfiles_csv['segmento'].astype(str).unique())
+            if faltantes:st.warning('Faltan perfiles de los segmentos: '+', '.join(sorted(faltantes)))
+    else:
+        st.warning('Falta perfiles_segmentos.csv. Los nombres y acciones deben provenir de la interpretación real del notebook; no se asignan automáticamente.')
+    st.subheader('Explorador de vendedores')
+    opciones=sorted(df[seg].dropna().unique(),key=str)
+    elegido=st.selectbox('Filtrar segmento', ['Todos']+list(opciones))
+    filtrado=df if elegido=='Todos' else df[df[seg]==elegido]
+    st.dataframe(filtrado,use_container_width=True)
+    csv_descarga(filtrado,'segmentacion_filtrada.csv','Descargar vendedores filtrados')
+    st.caption('La justificación de k, el preprocesamiento y la interpretación del PCA deben mantenerse documentados en el notebook.')
 
-    if (ROOT / 'perfiles_segmentos.csv').exists():
-        perfiles_texto = leer('perfiles_segmentos.csv')
-        st.dataframe(perfiles_texto, use_container_width=True)
-        requeridas = {'segmento', 'nombre', 'perfil', 'accion'}
-        if not requeridas.issubset(perfiles_texto.columns):
-            st.warning('El archivo de perfiles debe incluir: segmento, nombre, perfil y accion.')
-        elif perfiles_texto['segmento'].nunique() < df[seg].nunique():
-            st.warning('No hay perfiles documentados para todos los segmentos.')
 
-    st.subheader('Detalle de vendedores')
-    st.dataframe(df, use_container_width=True)
-    st.download_button(
-        'Descargar segmentación',
-        df.to_csv(index=False).encode('utf-8-sig'),
-        'segmentacion_vendedores.csv', 'text/csv'
-    )
+def validacion():
+    titulo('📈 Validación y resultados','Comparación de modelos y decisiones de selección')
+    st.write('La evaluación temporal evita utilizar información posterior al corte al medir el rendimiento de un modelo. Los siguientes valores corresponden a los resultados compartidos del notebook.')
+    a,b,c=st.columns(3)
+    a.metric('Pedidos para entrenamiento','57,065')
+    b.metric('Pedidos para validación','15,461')
+    c.metric('Precisión Top 10% · XGBoost','49.48%')
+    resultados=pd.DataFrame({'Método':['Selección aleatoria','Regla del retraso','Regresión logística','XGBoost'],'Precisión Top 10%':[11.89,38.55,45.99,49.48]})
+    st.plotly_chart(px.bar(resultados,x='Método',y='Precisión Top 10%',text_auto='.2f',title='Precisión entre el 10% de pedidos priorizados'),use_container_width=True)
+    st.dataframe(resultados,use_container_width=True,hide_index=True)
+    st.success('XGBoost supera a la regla del retraso en 10.93 puntos porcentuales y a la selección aleatoria en 37.59 puntos porcentuales.')
+    st.write('En términos sencillos, de cada 10 pedidos priorizados por XGBoost, aproximadamente 5 recibieron una mala reseña en esta validación. Es una interpretación aproximada de la precisión Top 10%, no una garantía individual.')
+    st.warning('Estas cifras no son el resultado de evaluar pedidos ocultos del docente. La generalización debe comprobarse por separado.')
+    st.info('Revisar en el notebook la consistencia entre las fechas disponibles al momento de predecir, la ausencia de fuga de datos y el umbral utilizado por la API.')
+
 
 def ficha():
-    titulo('📄 Ficha del modelo',
-           'Documentación técnica y límites de uso')
-    ruta = ROOT / 'ficha_modelo.md'
+    titulo('📄 Ficha del modelo','Información para decidir cuándo y cómo utilizar la predicción')
+    texto=archivo_texto('ficha_modelo.md')
+    if texto:
+        st.markdown(texto)
+        st.download_button('Descargar ficha',texto,'ficha_modelo.md','text/markdown')
+        return
+    st.warning('Para la entrega debe añadirse ficha_modelo.md al repositorio. Esta vista provisional resume lo que está respaldado por la información disponible.')
+    st.subheader('1. Para qué sirve y para qué no')
+    st.write('Estima el riesgo de una reseña de 1 o 2 estrellas y ayuda a priorizar contactos. No debe usarse para sancionar vendedores ni para tomar decisiones irreversibles.')
+    st.subheader('2. Datos')
+    st.write('Proyecto basado en datos de Olist. En el notebook se reportan 77,304 pedidos en la tabla de trabajo y 57,065 para entrenamiento y 15,461 para validación temporal estricta. Falta documentar aquí el periodo exacto y todas las exclusiones.')
+    st.subheader('3. Qué tan bien funciona')
+    st.write('Precisión Top 10% en validación temporal: XGBoost 49.48%, regresión logística 45.99%, regla del retraso 38.55% y azar 11.89%. Aproximadamente 5 de cada 10 pedidos priorizados por XGBoost presentaron el resultado de interés.')
+    st.subheader('4. Límites conocidos')
+    st.write('Puede fallar ante cambios en las condiciones de entrega, datos faltantes, categorías poco representadas y diferencias entre la muestra histórica y pedidos futuros.')
+    st.subheader('5. A quién afecta un error')
+    st.write('Un falso positivo puede provocar una llamada innecesaria. Un falso negativo puede dejar sin atención prioritaria a un cliente insatisfecho. Penalizar vendedores por predicciones o retrasos ajenos a su control sería un uso inapropiado.')
+    st.subheader('6. Recomendación y supervisión')
+    st.write('Usar el modelo como apoyo a un equipo humano, revisar periódicamente precisión y errores por grupos y actualizarlo cuando cambien los datos. Definir con el responsable operativo una frecuencia formal de revisión.')
 
-    if ruta.exists():
-        st.markdown(ruta.read_text(encoding='utf-8'))
-    else:
-        st.warning('Pendiente: agregar ficha_modelo.md con los seis puntos de la sección 11 de la guía. No se muestran métricas no verificadas.')
-        st.write('**Información confirmada:** API FastAPI; algoritmo XGBoost; objetivo: estimar riesgo de mala reseña; umbral utilizado en la API: 0.2704 (verificar que coincida con la versión final del entrenamiento).')
-        st.write('**Por completar con el notebook:** datos, validación temporal, métricas, comparación contra línea base, variables, limitaciones y decisiones de uso.')
-
-paginas = [
-    st.Page(inicio, title='Inicio', icon='🏠'),
-    st.Page(riesgo, title='Predicción de riesgo', icon='⚠️'),
-    st.Page(comentarios, title='Análisis de comentarios', icon='💬'),
-    st.Page(segmentos, title='Segmentación 3B', icon='👥'),
-    st.Page(ficha, title='Ficha del modelo', icon='📄'),
+paginas=[
+    st.Page(inicio,title='Inicio',icon='🏠'),
+    st.Page(riesgo,title='Predicción de riesgo',icon='⚠️'),
+    st.Page(comentarios,title='Análisis de comentarios',icon='💬'),
+    st.Page(segmentos,title='Segmentación 3B',icon='👥'),
+    st.Page(validacion,title='Validación y resultados',icon='📈'),
+    st.Page(ficha,title='Ficha del modelo',icon='📄'),
 ]
-
 st.navigation(paginas).run()
 st.divider()
-st.caption('Proyecto final Olist · Resultados académicos; las probabilidades no sustituyen una decisión humana.')
+st.caption('Proyecto final Olist · Resultados académicos · Uso con supervisión humana')
