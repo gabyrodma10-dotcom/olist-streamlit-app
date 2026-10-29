@@ -9,7 +9,7 @@ import streamlit as st
 
 
 # ============================================================
-# CONFIGURACIÓN GENERAL
+# CONFIGURACIÓN
 # ============================================================
 
 st.set_page_config(
@@ -115,7 +115,7 @@ def api_url():
 
 
 # ============================================================
-# DATOS DE EJEMPLO PARA EL SIMULADOR
+# EJEMPLOS DEL SIMULADOR
 # ============================================================
 
 EJEMPLOS = {
@@ -204,8 +204,8 @@ def inicio():
             )
         else:
             st.info(
-                "Para visualizar la portada, agrega "
-                "olist_resenas_portada.png al repositorio."
+                "Agrega olist_resenas_portada.png "
+                "a la raíz del repositorio."
             )
 
     vendedores = cargar_csv(
@@ -232,10 +232,7 @@ def inicio():
         else "No disponible"
     )
 
-    c.metric(
-        "Áreas de análisis",
-        "3"
-    )
+    c.metric("Áreas de análisis", "3")
 
     st.subheader(
         "¿Qué encontrarás en esta aplicación?"
@@ -246,21 +243,17 @@ def inicio():
     with col1:
 
         with st.container(border=True):
-
             st.markdown("#### 📦 Predicción de riesgo")
-
             st.write(
                 "Simula un pedido y consulta la probabilidad "
-                "estimada de recibir una reseña negativa "
-                "mediante XGBoost y FastAPI."
+                "estimada de recibir una reseña de 1 o 2 "
+                "estrellas mediante XGBoost y FastAPI."
             )
 
         with st.container(border=True):
-
             st.markdown(
                 "#### 👥 Segmentación de vendedores"
             )
-
             st.write(
                 "Explora los grupos identificados con "
                 "K-Means y sus diferencias en pedidos, "
@@ -271,11 +264,9 @@ def inicio():
     with col2:
 
         with st.container(border=True):
-
             st.markdown(
                 "#### 💬 Análisis de comentarios"
             )
-
             st.write(
                 "Compara el sentimiento expresado en "
                 "las reseñas con las estrellas otorgadas "
@@ -283,23 +274,35 @@ def inicio():
             )
 
         with st.container(border=True):
-
             st.markdown(
                 "#### 📈 Validación y comparación de modelos"
             )
-
             st.write(
-                "Revisa el desempeño de los modelos, "
-                "sus comparaciones y el análisis adicional "
-                "de Keras frente a XGBoost."
+                "Revisa el desempeño de XGBoost, "
+                "regresión logística y las referencias "
+                "de comparación."
             )
+
+    # QUINTA TARJETA: PLUS
+
+    with st.container(border=True):
+
+        st.markdown(
+            "#### 🧠 Plus · Keras vs. XGBoost (+5 puntos)"
+        )
+
+        st.write(
+            "Explora la comparación adicional de una "
+            "red neuronal Keras frente a XGBoost, "
+            "con early stopping y curva de pérdida."
+        )
 
     st.subheader("¿Cómo usar la aplicación?")
 
     st.markdown(
-        "**1.** Selecciona una sección en el menú lateral.\n\n"
+        "**1.** Selecciona una sección en el menú lateral.  \n"
         "**2.** Explora los resultados o prueba un pedido "
-        "en el simulador.\n\n"
+        "en el simulador.  \n"
         "**3.** Consulta la validación y la ficha del modelo "
         "para profundizar en la metodología."
     )
@@ -1147,8 +1150,6 @@ def segmentos():
             "cuantitativos suficientes."
         )
 
-    # Interpretación sin CSV adicional
-
     st.subheader(
         "Nombres y acciones por segmento"
     )
@@ -1746,7 +1747,7 @@ def ficha():
 
 
 # ============================================================
-# NAVEGACIÓN DE LA APLICACIÓN
+# NAVEGACIÓN
 # ============================================================
 
 paginas = [
