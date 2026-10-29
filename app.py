@@ -2,10 +2,12 @@
 from pathlib import Path
 from datetime import timedelta
 import json
+
 import pandas as pd
 import plotly.express as px
 import requests
 import streamlit as st
+
 
 # ============================================================
 # CONFIGURACIÓN GENERAL
@@ -14,33 +16,37 @@ import streamlit as st
 st.set_page_config(
     page_title="Olist: del pedido a la reseña",
     page_icon="📊",
-    layout="wide"
+    layout="wide",
 )
 
 ROOT = Path(__file__).resolve().parent
+
 API_DEFAULT = "https://api-olist-riesgo.onrender.com"
 UMBRAL_REFERENCIA = 0.262102
 
-st.markdown("""
-<style>
-.block-container {
-    max-width: 1250px;
-    padding-top: 1.6rem;
-}
-h1, h2, h3 {
-    letter-spacing: -.02em;
-}
-[data-testid="stMetric"] {
-    border: 1px solid rgba(120,120,120,.22);
-    padding: 16px;
-    border-radius: 12px;
-    background: rgba(120,120,120,.045);
-}
-section[data-testid="stSidebar"] {
-    border-right: 1px solid rgba(120,120,120,.15);
-}
-</style>
-""", unsafe_allow_html=True)
+st.markdown(
+    """
+    <style>
+    .block-container {
+        max-width: 1250px;
+        padding-top: 1.6rem;
+    }
+    h1, h2, h3 {
+        letter-spacing: -.02em;
+    }
+    [data-testid="stMetric"] {
+        border: 1px solid rgba(120,120,120,.22);
+        padding: 16px;
+        border-radius: 12px;
+        background: rgba(120,120,120,.045);
+    }
+    section[data-testid="stSidebar"] {
+        border-right: 1px solid rgba(120,120,120,.15);
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 
 
 # ============================================================
@@ -50,19 +56,23 @@ section[data-testid="stSidebar"] {
 @st.cache_data(show_spinner=False)
 def cargar_csv(nombre):
     ruta = ROOT / nombre
+
     if not ruta.exists():
         return None
+
     return pd.read_csv(
         ruta,
         encoding="utf-8-sig",
-        low_memory=False
+        low_memory=False,
     )
 
 
 def archivo_texto(nombre):
     ruta = ROOT / nombre
+
     if ruta.exists():
         return ruta.read_text(encoding="utf-8")
+
     return None
 
 
@@ -92,7 +102,7 @@ def csv_descarga(df, nombre, etiqueta):
         etiqueta,
         data=df.to_csv(index=False).encode("utf-8-sig"),
         file_name=nombre,
-        mime="text/csv"
+        mime="text/csv",
     )
 
 
@@ -112,7 +122,7 @@ def api_url():
 
 
 # ============================================================
-# ESCENARIOS PARA LA PREDICCIÓN
+# ESCENARIOS DE EJEMPLO
 # ============================================================
 
 EJEMPLOS = {
@@ -133,7 +143,7 @@ EJEMPLOS = {
         "categoria": "beleza_saude",
         "estado_vendedor": "SP",
         "tipo_pago": "credit_card",
-        "cuotas_max": 3
+        "cuotas_max": 3,
     },
     "Entrega con retraso": {
         "order_id": "PRUEBA_002",
@@ -152,8 +162,8 @@ EJEMPLOS = {
         "categoria": "beleza_saude",
         "estado_vendedor": "SP",
         "tipo_pago": "credit_card",
-        "cuotas_max": 3
-    }
+        "cuotas_max": 3,
+    },
 }
 
 
@@ -170,7 +180,7 @@ def inicio():
     izquierda, derecha = st.columns(
         [1.15, 1],
         gap="large",
-        vertical_alignment="center"
+        vertical_alignment="center",
     )
 
     with izquierda:
@@ -195,7 +205,7 @@ def inicio():
         if imagen.exists():
             st.image(
                 str(imagen),
-                use_container_width=True
+                use_container_width=True,
             )
         else:
             st.info(
@@ -217,14 +227,14 @@ def inicio():
         "Vendedores analizados",
         f"{len(vendedores):,}"
         if vendedores is not None
-        else "No disponible"
+        else "No disponible",
     )
 
     b.metric(
         "Comentarios analizados",
         f"{len(comentarios_df):,}"
         if comentarios_df is not None
-        else "No disponible"
+        else "No disponible",
     )
 
     c.metric("Áreas de análisis", "3")
@@ -241,6 +251,7 @@ def inicio():
             st.markdown(
                 "#### 📦 Predicción de riesgo"
             )
+
             st.write(
                 "Simula un pedido y consulta la probabilidad "
                 "estimada de recibir una reseña de 1 o 2 "
@@ -251,6 +262,7 @@ def inicio():
             st.markdown(
                 "#### 👥 Segmentación de vendedores"
             )
+
             st.write(
                 "Explora los grupos identificados con "
                 "K-Means y sus diferencias en pedidos, "
@@ -264,6 +276,7 @@ def inicio():
             st.markdown(
                 "#### 💬 Análisis de comentarios"
             )
+
             st.write(
                 "Compara el sentimiento expresado en "
                 "las reseñas con las estrellas otorgadas "
@@ -274,6 +287,7 @@ def inicio():
             st.markdown(
                 "#### 📈 Validación y comparación de modelos"
             )
+
             st.write(
                 "Revisa el desempeño de XGBoost, "
                 "regresión logística y las referencias "
@@ -284,6 +298,7 @@ def inicio():
         st.markdown(
             "#### 🧠 Plus · Keras vs. XGBoost (+5 puntos)"
         )
+
         st.write(
             "Explora la comparación adicional de una "
             "red neuronal Keras frente a XGBoost, "
@@ -310,16 +325,16 @@ def riesgo():
     titulo(
         "⚠️ Predicción de riesgo",
         "Consulta el modelo XGBoost desplegado en FastAPI "
-        "y prioriza pedidos según su riesgo de reseña negativa."
+        "y prioriza pedidos según su riesgo de reseña negativa.",
     )
 
     st.write(
         "El modelo estima la probabilidad de que un pedido "
         "reciba una reseña de **1 o 2 estrellas**, a partir "
         "de sus características y datos de entrega. "
-        "Para la priorización se utiliza el **10% de pedidos "
-        "con mayor riesgo** según un umbral establecido "
-        "con datos de referencia."
+        "Para la priorización se utiliza un umbral "
+        "correspondiente al **percentil 90 de las "
+        "probabilidades de referencia**."
     )
 
     st.info(
@@ -334,13 +349,13 @@ def riesgo():
         "1. Selecciona un escenario de ejemplo",
         [
             "📦 Entrega puntual",
-            "🚚 Entrega con retraso"
+            "🚚 Entrega con retraso",
         ],
         horizontal=True,
         help=(
             "Pedidos ficticios para probar "
             "el funcionamiento de la API."
-        )
+        ),
     )
 
     clave = (
@@ -356,27 +371,29 @@ def riesgo():
     campos_fecha = [
         (
             "order_purchase_timestamp",
-            "Fecha de compra"
+            "Fecha de compra",
         ),
         (
             "order_approved_at",
-            "Fecha de aprobación"
+            "Fecha de aprobación",
         ),
         (
             "order_delivered_carrier_date",
-            "Entrega al transportista"
+            "Entrega al transportista",
         ),
         (
             "order_estimated_delivery_date",
-            "Entrega prometida"
+            "Entrega prometida",
         ),
         (
             "order_delivered_customer_date",
-            "Entrega real"
-        )
+            "Entrega real",
+        ),
     ]
 
-    # Inicialización de fechas
+    # --------------------------------------------------------
+    # INICIALIZACIÓN DE FECHAS
+    # --------------------------------------------------------
 
     for campo, _ in campos_fecha:
 
@@ -436,12 +453,15 @@ def riesgo():
     # BARRA DESLIZABLE
     # --------------------------------------------------------
 
-    st.subheader("2. Revisa o cambia el pedido")
+    st.subheader(
+        "2. Revisa o cambia el pedido"
+    )
 
     st.caption(
-        "Ejemplos hipotéticos: cambiar fechas no incorpora "
-        "pedidos ocultos al entrenamiento ni constituye "
-        "una evaluación de esos pedidos."
+        "Los pedidos son ejemplos hipotéticos. "
+        "Cambiar las fechas no incorpora pedidos "
+        "ocultos al entrenamiento ni constituye "
+        "una evaluación sobre esos pedidos."
     )
 
     st.slider(
@@ -455,7 +475,7 @@ def riesgo():
         help=(
             "-4 significa cuatro días antes; "
             "+8, ocho días tarde."
-        )
+        ),
     )
 
     prometida = st.session_state[key_prometida]
@@ -467,17 +487,17 @@ def riesgo():
 
     a.metric(
         "Fecha prometida",
-        prometida.strftime("%d/%m/%Y")
+        prometida.strftime("%d/%m/%Y"),
     )
 
     b.metric(
         "Entrega real",
-        real.strftime("%d/%m/%Y")
+        real.strftime("%d/%m/%Y"),
     )
 
     c.metric(
         "Días respecto al plazo",
-        f"{dias:+d}"
+        f"{dias:+d}",
     )
 
     if dias > 0:
@@ -519,19 +539,19 @@ def riesgo():
                 ("estado_cliente", "Estado del cliente"),
                 ("estado_vendedor", "Estado del vendedor"),
                 ("categoria", "Categoría"),
-                ("tipo_pago", "Tipo de pago")
+                ("tipo_pago", "Tipo de pago"),
             ]:
 
                 datos[campo] = st.text_input(
                     etiqueta,
                     value=str(datos[campo]),
-                    key=f"{pref}_{campo}"
+                    key=f"{pref}_{campo}",
                 )
 
             for campo, etiqueta in [
                 ("n_items", "Número de artículos"),
                 ("n_vendedores", "Número de vendedores"),
-                ("cuotas_max", "Cuotas máximas")
+                ("cuotas_max", "Cuotas máximas"),
             ]:
 
                 datos[campo] = int(
@@ -540,7 +560,7 @@ def riesgo():
                         min_value=0,
                         value=int(datos[campo]),
                         step=1,
-                        key=f"{pref}_{campo}"
+                        key=f"{pref}_{campo}",
                     )
                 )
 
@@ -569,14 +589,14 @@ def riesgo():
                         "2028-12-31"
                     ).date(),
                     key=f"{pref}_{campo}",
-                    **kwargs
+                    **kwargs,
                 )
 
             for campo, etiqueta in [
                 ("precio_total", "Precio total"),
                 ("flete_total", "Costo de envío"),
                 ("peso_total_g", "Peso en gramos"),
-                ("fotos_promedio", "Fotos promedio")
+                ("fotos_promedio", "Fotos promedio"),
             ]:
 
                 datos[campo] = float(
@@ -584,7 +604,7 @@ def riesgo():
                         etiqueta,
                         min_value=0.0,
                         value=float(datos[campo]),
-                        key=f"{pref}_{campo}"
+                        key=f"{pref}_{campo}",
                     )
                 )
 
@@ -604,7 +624,7 @@ def riesgo():
 
         datos[campo] = pd.Timestamp.combine(
             fecha,
-            original.time()
+            original.time(),
         ).strftime("%Y-%m-%dT%H:%M:%S")
 
     compra = pd.to_datetime(
@@ -621,6 +641,10 @@ def riesgo():
 
     entrega = pd.to_datetime(
         datos["order_delivered_customer_date"]
+    )
+
+    estimada = pd.to_datetime(
+        datos["order_estimated_delivery_date"]
     )
 
     errores = []
@@ -643,6 +667,12 @@ def riesgo():
             "a la entrega al transportista."
         )
 
+    if estimada < compra:
+        errores.append(
+            "La fecha prometida no puede ser "
+            "anterior a la compra."
+        )
+
     for error in errores:
         st.error(error)
 
@@ -651,7 +681,7 @@ def riesgo():
         type="primary",
         use_container_width=True,
         disabled=bool(errores),
-        key=f"{pref}_enviar"
+        key=f"{pref}_enviar",
     )
 
     # --------------------------------------------------------
@@ -672,15 +702,15 @@ def riesgo():
             value=json.dumps(
                 datos,
                 indent=2,
-                ensure_ascii=False
+                ensure_ascii=False,
             ),
             height=280,
-            key=f"{pref}_json"
+            key=f"{pref}_json",
         )
 
         enviar_json = st.button(
             "Enviar JSON técnico",
-            key=f"{pref}_json_enviar"
+            key=f"{pref}_json_enviar",
         )
 
     if enviar_json:
@@ -769,7 +799,7 @@ def riesgo():
             respuesta = requests.post(
                 api_url() + "/riesgo",
                 json=datos,
-                timeout=120
+                timeout=120,
             )
 
         except requests.exceptions.Timeout:
@@ -813,7 +843,7 @@ def riesgo():
         return
 
     # --------------------------------------------------------
-    # RESULTADO DE LA API
+    # RESULTADO
     # --------------------------------------------------------
 
     try:
@@ -847,7 +877,7 @@ def riesgo():
 
     umbral_api = resultado.get(
         "umbral_riesgo",
-        resultado.get("umbral")
+        resultado.get("umbral"),
     )
 
     try:
@@ -874,12 +904,12 @@ def riesgo():
 
     izquierda.metric(
         "Probabilidad estimada de 1–2 estrellas",
-        f"{probabilidad:.2%}"
+        f"{probabilidad:.2%}",
     )
 
     derecha.metric(
         "Umbral de riesgo alto (Top 10%)",
-        f"{umbral:.2%}"
+        f"{umbral:.2%}",
     )
 
     if alto is True:
@@ -906,7 +936,7 @@ def riesgo():
     if umbral_api is None:
 
         st.caption(
-            "El umbral mostrado proviene del cálculo "
+            "El umbral mostrado procede del cálculo "
             "final del notebook; la clasificación "
             "se toma directamente de la API."
         )
@@ -931,7 +961,7 @@ def riesgo():
     )
 
     st.caption(
-        "El 10% se define al ordenar las probabilidades "
+        "El Top 10% se define al ordenar las probabilidades "
         "del conjunto de referencia; no implica que "
         "exactamente el 10% de cada lote de pruebas "
         "quede clasificado como alto. Los ejemplos "
@@ -953,7 +983,7 @@ def comentarios():
 
     titulo(
         "💬 Análisis de comentarios",
-        "Sentimiento del texto frente a las estrellas"
+        "Sentimiento del texto frente a las estrellas",
     )
 
     df = cargar_csv(
@@ -969,17 +999,20 @@ def comentarios():
     requeridas = [
         "review_score",
         "review_comment_message",
-        "sentimiento_modelo"
+        "sentimiento_modelo",
     ]
 
-    if any(
-        c not in df.columns
-        for c in requeridas
-    ):
+    faltantes = [
+        columna
+        for columna in requeridas
+        if columna not in df.columns
+    ]
+
+    if faltantes:
 
         st.error(
             "El CSV no contiene las columnas requeridas: "
-            + ", ".join(requeridas)
+            + ", ".join(faltantes)
         )
         return
 
@@ -987,7 +1020,7 @@ def comentarios():
 
     datos["review_score"] = pd.to_numeric(
         datos["review_score"],
-        errors="coerce"
+        errors="coerce",
     )
 
     datos["sentimiento_modelo"] = (
@@ -997,7 +1030,9 @@ def comentarios():
         .str.strip()
     )
 
-    # Criterio de comparación con las estrellas
+    # --------------------------------------------------------
+    # SENTIMIENTO SEGÚN LAS ESTRELLAS
+    # --------------------------------------------------------
 
     def sentimiento_por_estrellas(valor):
 
@@ -1018,18 +1053,15 @@ def comentarios():
         )
     )
 
-    datos["coincide_calculado"] = (
-        datos["sentimiento_modelo"]
-        == datos["sentimiento_estrellas"]
-    )
-
     validos = (
         datos["review_score"].between(1, 5)
-        & datos["sentimiento_modelo"].isin([
-            "negative",
-            "neutral",
-            "positive"
-        ])
+        & datos["sentimiento_modelo"].isin(
+            [
+                "negative",
+                "neutral",
+                "positive",
+            ]
+        )
     )
 
     datos = datos.loc[validos].copy()
@@ -1041,31 +1073,44 @@ def comentarios():
         )
         return
 
-    aciertos = int(
+    datos["coincide_calculado"] = (
+        datos["sentimiento_modelo"]
+        == datos["sentimiento_estrellas"]
+    )
+
+    total = len(datos)
+
+    coincidencias = int(
         datos["coincide_calculado"].sum()
     )
 
-    diferencias = len(datos) - aciertos
+    desacuerdos = total - coincidencias
+
+    porcentaje_coincidencia = (
+        coincidencias / total
+        if total
+        else 0
+    )
 
     # --------------------------------------------------------
-    # INDICADORES
+    # INDICADORES PRINCIPALES
     # --------------------------------------------------------
 
     a, b, c = st.columns(3)
 
     a.metric(
         "Comentarios analizados",
-        f"{len(datos):,}"
+        f"{total:,}",
     )
 
     b.metric(
         "Coincidencia texto-estrellas",
-        f"{aciertos / len(datos):.2%}"
+        f"{porcentaje_coincidencia:.2%}",
     )
 
     c.metric(
         "Desacuerdos",
-        f"{diferencias:,}"
+        f"{desacuerdos:,}",
     )
 
     st.caption(
@@ -1080,13 +1125,29 @@ def comentarios():
     ):
 
         st.write(
-            "Muestra reproducible de 1,000 comentarios "
-            "(random_state=42). "
-            "Modelo preentrenado: "
-            "cardiffnlp/twitter-xlm-roberta-base-sentiment. "
-            "Las etiquetas fueron calculadas en Colab; "
-            "Streamlit presenta los resultados sin "
-            "volver a ejecutar el modelo."
+            "La muestra del notebook contiene "
+            "1,000 comentarios seleccionados "
+            "de manera reproducible "
+            "(random_state=42)."
+        )
+
+        st.write(
+            "**Modelo preentrenado:** "
+            "`cardiffnlp/twitter-xlm-roberta-base-sentiment`."
+        )
+
+        st.write(
+            "Las etiquetas de sentimiento fueron "
+            "calculadas en Colab. Streamlit utiliza "
+            "el archivo CSV con los resultados "
+            "y no vuelve a ejecutar el modelo."
+        )
+
+        st.write(
+            "**Criterio de comparación:** "
+            "1–2 estrellas = negativo; "
+            "3 estrellas = neutro; "
+            "4–5 estrellas = positivo."
         )
 
     # --------------------------------------------------------
@@ -1097,9 +1158,19 @@ def comentarios():
         "Distribución de sentimientos"
     )
 
+    orden_sentimientos = [
+        "positive",
+        "negative",
+        "neutral",
+    ]
+
     conteo = (
         datos["sentimiento_modelo"]
         .value_counts()
+        .reindex(
+            orden_sentimientos,
+            fill_value=0,
+        )
         .rename_axis("Sentimiento")
         .reset_index(name="Comentarios")
     )
@@ -1109,16 +1180,25 @@ def comentarios():
         x="Sentimiento",
         y="Comentarios",
         color="Sentimiento",
-        text="Comentarios"
+        text="Comentarios",
+        category_orders={
+            "Sentimiento": orden_sentimientos
+        },
+    )
+
+    fig.update_layout(
+        xaxis_title="Sentimiento",
+        yaxis_title="Comentarios",
+        showlegend=True,
     )
 
     st.plotly_chart(
         fig,
-        use_container_width=True
+        use_container_width=True,
     )
 
     # --------------------------------------------------------
-    # CRUCE DE SENTIMIENTO Y ESTRELLAS
+    # SENTIMIENTO FRENTE A ESTRELLAS
     # --------------------------------------------------------
 
     st.subheader(
@@ -1127,22 +1207,22 @@ def comentarios():
 
     tabla = pd.crosstab(
         datos["review_score"].astype(int),
-        datos["sentimiento_modelo"]
+        datos["sentimiento_modelo"],
     ).reindex(
         index=[1, 2, 3, 4, 5],
         columns=[
             "negative",
             "neutral",
-            "positive"
+            "positive",
         ],
-        fill_value=0
+        fill_value=0,
     )
 
     tabla.index.name = "Estrellas"
 
     st.dataframe(
         tabla,
-        use_container_width=True
+        use_container_width=True,
     )
 
     fig = px.imshow(
@@ -1152,13 +1232,13 @@ def comentarios():
         labels={
             "x": "Sentimiento del texto",
             "y": "Estrellas",
-            "color": "Comentarios"
-        }
+            "color": "Comentarios",
+        },
     )
 
     st.plotly_chart(
         fig,
-        use_container_width=True
+        use_container_width=True,
     )
 
     st.caption(
@@ -1169,7 +1249,7 @@ def comentarios():
     )
 
     # --------------------------------------------------------
-    # INTERPRETACIÓN DE DIFERENCIAS
+    # INTERPRETACIÓN DE LAS DIFERENCIAS
     # --------------------------------------------------------
 
     st.subheader(
@@ -1195,71 +1275,99 @@ def comentarios():
     )
 
     st.write(
-        f"En **{len(datos):,}** comentarios, "
-        f"**{aciertos:,}** coinciden y "
-        f"**{diferencias:,}** no coinciden. "
+        f"De los **{total:,} comentarios analizados**, "
+        f"**{coincidencias:,} coinciden** con la "
+        f"interpretación de las estrellas y "
+        f"**{desacuerdos:,} presentan diferencias**. "
         f"Entre las reseñas de 4 y 5 estrellas, "
-        f"**{neutros_altos}** textos fueron clasificados "
-        f"como neutrales y **{negativos_altos}** "
-        f"como negativos. "
-        "Una diferencia no demuestra por sí sola "
-        "un error: las estrellas valoran la experiencia "
-        "general y el texto puede referirse "
-        "a un aspecto concreto."
+        f"**{neutros_altos} comentarios** fueron "
+        f"clasificados como neutrales y "
+        f"**{negativos_altos}** como negativos."
+    )
+
+    st.write(
+        "Estas diferencias no significan necesariamente "
+        "que el modelo esté equivocado: una calificación "
+        "puede representar la experiencia general, "
+        "mientras que el comentario describe "
+        "un aspecto específico del pedido."
     )
 
     # --------------------------------------------------------
     # CINCO DESACUERDOS REALES E INTERPRETADOS
-    # ============================================================
+    # --------------------------------------------------------
 
     st.subheader(
         "Cinco desacuerdos reales e interpretados"
     )
 
     casos = [
-        (
-            "Blz",
-            4,
-            "neutral",
-            "Posible limitación del modelo: expresión "
-            "demasiado breve para detectar claramente "
-            "un tono positivo."
-        ),
-        (
-            "Achei só muito demorado o prazo para a entrega.",
-            4,
-            "negative",
-            "Diferencia entre valoración general y queja "
-            "concreta: el texto critica el plazo de entrega "
-            "pese a las cuatro estrellas."
-        ),
-        (
-            "Produto não entregue",
-            1,
-            "neutral",
-            "Posible error del modelo: la frase describe "
-            "una entrega fallida, claramente desfavorable, "
-            "pero fue clasificada como neutra."
-        ),
-        (
-            "Tudo ok. Exceto q a caixa de dentro veio violada.",
-            4,
-            "negative",
-            "Experiencia mixta: el cliente evalúa "
-            "favorablemente el conjunto, pero informa "
-            "un problema de embalaje."
-        ),
-        (
-            "fornecedor correto e produto excelente",
-            3,
-            "positive",
-            "El texto elogia al proveedor y al producto, "
-            "mientras que las tres estrellas sugieren "
-            "que pudo haber otros factores no mencionados."
-        )
+        {
+            "texto": "Blz",
+            "estrellas": 4,
+            "sentimiento": "neutral",
+            "interpretacion": (
+                "Posible limitación del modelo: "
+                "la expresión es demasiado breve "
+                "para detectar claramente "
+                "un tono positivo."
+            ),
+        },
+        {
+            "texto": (
+                "Achei só muito demorado "
+                "o prazo para a entrega."
+            ),
+            "estrellas": 4,
+            "sentimiento": "negative",
+            "interpretacion": (
+                "El cliente asigna cuatro estrellas, "
+                "pero expresa una queja concreta "
+                "sobre el plazo de entrega. "
+                "El texto revela una oportunidad "
+                "de mejora logística."
+            ),
+        },
+        {
+            "texto": "Produto não entregue",
+            "estrellas": 1,
+            "sentimiento": "neutral",
+            "interpretacion": (
+                "Posible error del modelo: "
+                "el comentario describe una entrega "
+                "fallida, claramente desfavorable, "
+                "pero fue clasificado como neutral."
+            ),
+        },
+        {
+            "texto": (
+                "Tudo ok. Exceto q a caixa "
+                "de dentro veio violada."
+            ),
+            "estrellas": 4,
+            "sentimiento": "negative",
+            "interpretacion": (
+                "El comentario describe una experiencia "
+                "mixta: aunque la valoración general "
+                "es favorable, existe una queja "
+                "sobre el embalaje del producto."
+            ),
+        },
+        {
+            "texto": (
+                "fornecedor correto e produto excelente"
+            ),
+            "estrellas": 3,
+            "sentimiento": "positive",
+            "interpretacion": (
+                "El texto expresa satisfacción "
+                "con el proveedor y el producto, "
+                "pero las tres estrellas podrían "
+                "reflejar otros factores "
+                "no mencionados en el comentario."
+            ),
+        },
     ]
-
-    encontrados = []
 
     texto_normalizado = (
         datos["review_comment_message"]
@@ -1269,12 +1377,18 @@ def comentarios():
         .str.casefold()
     )
 
-    for fragmento, estrellas, etiqueta, interpretacion in casos:
+    encontrados = []
+
+    for caso_actual in casos:
+
+        fragmento = caso_actual["texto"]
+        estrellas = caso_actual["estrellas"]
+        etiqueta = caso_actual["sentimiento"]
 
         mascara = (
             texto_normalizado.str.contains(
                 fragmento.casefold(),
-                regex=False
+                regex=False,
             )
             & (
                 datos["review_score"]
@@ -1286,31 +1400,42 @@ def comentarios():
             )
         )
 
-        coincidencias = datos.loc[mascara]
+        coincidencias_caso = datos.loc[mascara]
 
-        if not coincidencias.empty:
+        if not coincidencias_caso.empty:
 
-            fila = coincidencias.iloc[0]
+            fila = coincidencias_caso.iloc[0]
 
             encontrados.append(
-                (fila, interpretacion)
+                {
+                    "fila": fila,
+                    "interpretacion": (
+                        caso_actual["interpretacion"]
+                    ),
+                }
             )
 
-    for i, (fila, interpretacion) in enumerate(
+    for numero, caso_encontrado in enumerate(
         encontrados,
-        1
+        1,
     ):
+
+        fila = caso_encontrado["fila"]
+
+        interpretacion = (
+            caso_encontrado["interpretacion"]
+        )
 
         with st.container(border=True):
 
             st.markdown(
-                f'**Caso {i} · '
+                f"**Caso {numero} · "
                 f'{int(fila["review_score"])} estrellas · '
                 f'Modelo: {fila["sentimiento_modelo"]}**'
             )
 
             st.write(
-                "Comentario original: "
+                "**Comentario original:** "
                 + str(
                     fila["review_comment_message"]
                 )
@@ -1325,77 +1450,229 @@ def comentarios():
 
         st.warning(
             f"Se verificaron {len(encontrados)} "
-            "de los 5 casos documentados en el notebook. "
-            "Comprueba que el CSV publicado corresponda "
-            "a esa ejecución; no se muestran "
-            "interpretaciones para comentarios "
-            "no verificados."
+            "de los cinco casos documentados. "
+            "Comprueba que el CSV publicado "
+            "corresponda a la ejecución "
+            "del notebook."
         )
 
-    # --------------------------------------------------------
-    # CONCLUSIÓN DEL ANÁLISIS
-    # --------------------------------------------------------
+    # ========================================================
+    # NUEVO: CONCLUSIÓN ORIENTADA AL VALOR PARA OLIST
+    # ========================================================
 
     st.subheader(
         "¿Qué aporta el texto frente a las estrellas?"
     )
 
     st.write(
-        "El texto permite identificar **causas específicas** "
-        "de satisfacción o insatisfacción —por ejemplo, "
-        "retrasos, entregas fallidas, embalajes dañados "
-        "o recomendaciones— que una puntuación numérica "
-        "no explica. Un cliente puede asignar cuatro "
-        "estrellas y aun así describir un problema "
-        "logístico. Por eso, para Olist conviene analizar "
-        "**estrellas y comentarios en conjunto**: "
-        "las estrellas resumen la valoración y el texto "
-        "ayuda a orientar acciones de mejora."
+        f"El análisis de **{total:,} comentarios** "
+        f"mostró una coincidencia del "
+        f"**{porcentaje_coincidencia:.2%}** "
+        f"entre el sentimiento del texto y las "
+        f"estrellas otorgadas, mientras que "
+        f"**{desacuerdos:,} comentarios** "
+        "presentaron diferencias."
     )
 
     st.write(
-        "**Limitaciones:** los textos cortos, las opiniones "
-        "mixtas y el contexto lingüístico pueden generar "
-        "desacuerdos. El porcentaje de coincidencia "
-        "es una comparación con las estrellas, "
-        "no una medida de exactitud validada "
-        "frente a etiquetas humanas."
+        "Estos desacuerdos evidencian que una "
+        "calificación numérica no siempre refleja "
+        "todos los aspectos de la experiencia "
+        "del cliente. Por ejemplo, encontramos "
+        "reseñas de **cuatro estrellas** que "
+        "expresan inconformidad con los "
+        "tiempos de entrega."
+    )
+
+    st.markdown(
+        "**Valor para Olist:** combinar estrellas "
+        "y comentarios permite detectar problemas "
+        "específicos de logística, entregas y calidad "
+        "del producto, facilitando acciones de mejora "
+        "que no podrían identificarse únicamente "
+        "con las calificaciones."
+    )
+
+    st.caption(
+        "Limitación: la coincidencia con las estrellas "
+        "no equivale a la exactitud del modelo, "
+        "ya que ambas fuentes pueden reflejar "
+        "aspectos diferentes de la experiencia."
+    )
+
+    # ========================================================
+    # NUEVO: EXPLORADOR CON ETIQUETAS Y FILTROS
+    # ========================================================
+
+    st.subheader(
+        "Explorar los resultados del análisis"
+    )
+
+    st.caption(
+        "Consulta los comentarios originales, "
+        "compara ambas clasificaciones y "
+        "filtra los casos en los que "
+        "no coinciden."
+    )
+
+    # Creamos una vista legible para la presentación.
+
+    exploracion = datos.copy()
+
+    traduccion = {
+        "positive": "Positivo",
+        "negative": "Negativo",
+        "neutral": "Neutro",
+    }
+
+    exploracion["Sentimiento del modelo"] = (
+        exploracion["sentimiento_modelo"]
+        .map(traduccion)
+    )
+
+    exploracion["Sentimiento según estrellas"] = (
+        exploracion["sentimiento_estrellas"]
+        .map(traduccion)
+    )
+
+    exploracion["¿Coinciden?"] = (
+        exploracion["coincide_calculado"]
+        .map(
+            {
+                True: "Sí",
+                False: "No",
+            }
+        )
+    )
+
+    exploracion["Estrellas"] = (
+        exploracion["review_score"].astype(int)
+    )
+
+    exploracion["Comentario original"] = (
+        exploracion["review_comment_message"]
+        .fillna("")
+        .astype(str)
+    )
+
+    columnas_mostrar = [
+        "Estrellas",
+        "Comentario original",
+        "Sentimiento del modelo",
+        "Sentimiento según estrellas",
+        "¿Coinciden?",
+    ]
+
+    # --------------------------------------------------------
+    # FILTROS
+    # --------------------------------------------------------
+
+    filtro1, filtro2 = st.columns(2)
+
+    with filtro1:
+
+        tipo_filtro = st.selectbox(
+            "Mostrar comentarios",
+            [
+                "Todos",
+                "Solo desacuerdos",
+                "Solo coincidencias",
+            ],
+            key="comentarios_filtro_tipo",
+        )
+
+    with filtro2:
+
+        estrellas_filtro = st.selectbox(
+            "Filtrar por estrellas",
+            [
+                "Todas",
+                "1 estrella",
+                "2 estrellas",
+                "3 estrellas",
+                "4 estrellas",
+                "5 estrellas",
+            ],
+            key="comentarios_filtro_estrellas",
+        )
+
+    filtrados = exploracion.copy()
+
+    if tipo_filtro == "Solo desacuerdos":
+
+        filtrados = filtrados[
+            filtrados["coincide_calculado"] == False
+        ]
+
+    elif tipo_filtro == "Solo coincidencias":
+
+        filtrados = filtrados[
+            filtrados["coincide_calculado"] == True
+        ]
+
+    if estrellas_filtro != "Todas":
+
+        numero_estrellas = int(
+            estrellas_filtro.split()[0]
+        )
+
+        filtrados = filtrados[
+            filtrados["Estrellas"] == numero_estrellas
+        ]
+
+    st.caption(
+        f"Mostrando **{len(filtrados):,} "
+        f"de {total:,} comentarios**."
     )
 
     # --------------------------------------------------------
-    # EXPLORAR COMENTARIOS
+    # TABLA CON RESULTADOS
     # --------------------------------------------------------
 
-    with st.expander(
-        "Explorar los comentarios y las etiquetas"
-    ):
+    st.dataframe(
+        filtrados[columnas_mostrar],
+        use_container_width=True,
+        hide_index=True,
+        column_config={
+            "Estrellas": st.column_config.NumberColumn(
+                "Estrellas",
+                width="small",
+                format="%d",
+            ),
+            "Comentario original": st.column_config.TextColumn(
+                "Comentario original",
+                width="large",
+            ),
+            "Sentimiento del modelo": st.column_config.TextColumn(
+                "Sentimiento del modelo",
+                width="medium",
+            ),
+            "Sentimiento según estrellas": st.column_config.TextColumn(
+                "Sentimiento según estrellas",
+                width="medium",
+            ),
+            "¿Coinciden?": st.column_config.TextColumn(
+                "¿Coinciden?",
+                width="small",
+            ),
+        },
+        height=400,
+    )
 
-        mostrar = [
-            c
-            for c in [
-                "review_id",
-                "order_id",
-                "review_score",
-                "review_comment_message",
-                "sentimiento_estrellas",
-                "sentimiento_modelo",
-                "confianza_modelo",
-                "coincide_calculado"
-            ]
-            if c in datos.columns
-        ]
+    # --------------------------------------------------------
+    # DESCARGAR ANÁLISIS
+    # --------------------------------------------------------
 
-        st.dataframe(
-            datos[mostrar],
-            use_container_width=True,
-            hide_index=True
-        )
+    csv_descarga(
+        filtrados[columnas_mostrar],
+        "analisis_comentarios_olist.csv",
+        "Descargar análisis de comentarios",
+    )
 
-        csv_descarga(
-            datos,
-            "sentimiento_comentarios_analisis.csv",
-            "Descargar análisis de comentarios"
-        )
+    st.caption(
+        "El archivo descargado corresponde "
+        "a los filtros seleccionados."
+    )
 
 
 # ============================================================
@@ -1406,7 +1683,7 @@ def segmentos():
 
     titulo(
         "👥 Segmentación de vendedores",
-        "Agrupación K-Means · Parte 3B"
+        "Agrupación K-Means · Parte 3B",
     )
 
     df = cargar_csv(
@@ -1423,7 +1700,7 @@ def segmentos():
         df,
         "segmento",
         "cluster",
-        "segment"
+        "segment",
     )
 
     if segmento is None:
@@ -1434,27 +1711,27 @@ def segmentos():
 
     identificador = buscar(
         df,
-        "seller_id"
+        "seller_id",
     )
 
     a, b = st.columns(2)
 
     a.metric(
         "Segmentos identificados",
-        str(df[segmento].nunique())
+        str(df[segmento].nunique()),
     )
 
     b.metric(
         "Vendedores analizados",
         f"{df[identificador].nunique():,}"
         if identificador
-        else f"{len(df):,}"
+        else f"{len(df):,}",
     )
 
     tamanos = (
         df.groupby(
             segmento,
-            dropna=False
+            dropna=False,
         )
         .size()
         .rename("Vendedores")
@@ -1470,12 +1747,12 @@ def segmentos():
         x=segmento,
         y="Vendedores",
         color=segmento,
-        text="Vendedores"
+        text="Vendedores",
     )
 
     st.plotly_chart(
         fig,
-        use_container_width=True
+        use_container_width=True,
     )
 
     st.subheader(
@@ -1484,7 +1761,7 @@ def segmentos():
 
     excluir = {
         segmento,
-        identificador
+        identificador,
     }
 
     numericas = []
@@ -1498,12 +1775,12 @@ def segmentos():
 
         convertido = pd.to_numeric(
             df[columna],
-            errors="coerce"
+            errors="coerce",
         )
 
         minimo = max(
             5,
-            int(len(df) * 0.5)
+            int(len(df) * 0.5),
         )
 
         if convertido.notna().sum() >= minimo:
@@ -1518,7 +1795,7 @@ def segmentos():
             numericas,
             default=numericas[
                 :min(5, len(numericas))
-            ]
+            ],
         )
 
         if elegidas:
@@ -1532,7 +1809,7 @@ def segmentos():
 
             st.dataframe(
                 perfiles,
-                use_container_width=True
+                use_container_width=True,
             )
 
             largo = (
@@ -1541,7 +1818,7 @@ def segmentos():
                 .melt(
                     id_vars=segmento,
                     var_name="Indicador",
-                    value_name="Promedio"
+                    value_name="Promedio",
                 )
             )
 
@@ -1550,12 +1827,12 @@ def segmentos():
                 x=segmento,
                 y="Promedio",
                 color="Indicador",
-                barmode="group"
+                barmode="group",
             )
 
             st.plotly_chart(
                 fig,
-                use_container_width=True
+                use_container_width=True,
             )
 
             st.caption(
@@ -1593,7 +1870,7 @@ def segmentos():
         "ventas_totales",
         "n_categorias",
         "tasa_retraso",
-        "flete_relativo"
+        "flete_relativo",
     ]
 
     faltan = [
@@ -1714,12 +1991,14 @@ def segmentos():
                 f"{fila['flete_relativo']:.3f}."
             )
 
-            registros.append({
-                "Segmento": grupo,
-                "Nombre propuesto": nombre,
-                "Perfil": perfil,
-                "Acción recomendada": accion
-            })
+            registros.append(
+                {
+                    "Segmento": grupo,
+                    "Nombre propuesto": nombre,
+                    "Perfil": perfil,
+                    "Acción recomendada": accion,
+                }
+            )
 
         tabla_perfiles = pd.DataFrame(
             registros
@@ -1728,7 +2007,7 @@ def segmentos():
         st.dataframe(
             tabla_perfiles,
             use_container_width=True,
-            hide_index=True
+            hide_index=True,
         )
 
     # --------------------------------------------------------
@@ -1741,16 +2020,17 @@ def segmentos():
 
     opciones = sorted(
         df[segmento].dropna().unique(),
-        key=str
+        key=str,
     )
 
     elegido = st.selectbox(
         "Filtrar segmento",
-        ["Todos"] + list(opciones)
+        ["Todos"] + list(opciones),
     )
 
     if elegido == "Todos":
         filtrado = df
+
     else:
         filtrado = df[
             df[segmento] == elegido
@@ -1758,13 +2038,13 @@ def segmentos():
 
     st.dataframe(
         filtrado,
-        use_container_width=True
+        use_container_width=True,
     )
 
     csv_descarga(
         filtrado,
         "segmentacion_filtrada.csv",
-        "Descargar vendedores filtrados"
+        "Descargar vendedores filtrados",
     )
 
     st.caption(
@@ -1782,7 +2062,7 @@ def validacion():
 
     titulo(
         "📈 Validación y resultados",
-        "Comparación de modelos predictivos"
+        "Comparación de modelos predictivos",
     )
 
     st.write(
@@ -1795,33 +2075,35 @@ def validacion():
 
     a.metric(
         "Pedidos de entrenamiento",
-        "57,065"
+        "57,065",
     )
 
     b.metric(
         "Pedidos de validación",
-        "15,461"
+        "15,461",
     )
 
     c.metric(
         "Precisión Top 10% · XGBoost",
-        "49.48%"
+        "49.48%",
     )
 
-    resultados = pd.DataFrame({
-        "Método": [
-            "Selección aleatoria",
-            "Regla del retraso",
-            "Regresión logística",
-            "XGBoost"
-        ],
-        "Precisión Top 10%": [
-            11.89,
-            38.55,
-            45.99,
-            49.48
-        ]
-    })
+    resultados = pd.DataFrame(
+        {
+            "Método": [
+                "Selección aleatoria",
+                "Regla del retraso",
+                "Regresión logística",
+                "XGBoost",
+            ],
+            "Precisión Top 10%": [
+                11.89,
+                38.55,
+                45.99,
+                49.48,
+            ],
+        }
+    )
 
     st.subheader(
         "Comparación de desempeño"
@@ -1835,18 +2117,18 @@ def validacion():
         title=(
             "Precisión entre el 10% "
             "de pedidos priorizados"
-        )
+        ),
     )
 
     st.plotly_chart(
         fig,
-        use_container_width=True
+        use_container_width=True,
     )
 
     st.dataframe(
         resultados,
         use_container_width=True,
-        hide_index=True
+        hide_index=True,
     )
 
     st.success(
@@ -1893,7 +2175,7 @@ def plus():
 
     titulo(
         "🧠 Plus · Keras vs. XGBoost",
-        "Comparación adicional de la rúbrica (+5 puntos)"
+        "Comparación adicional de la rúbrica (+5 puntos)",
     )
 
     st.write(
@@ -1907,33 +2189,35 @@ def plus():
 
     a.metric(
         "Pedidos de validación",
-        "15,461"
+        "15,461",
     )
 
     b.metric(
         "Características procesadas",
-        "140"
+        "140",
     )
 
     c.metric(
         "Mejor época de Keras",
-        "5 de 10"
+        "5 de 10",
     )
 
     st.subheader(
         "Precisión Top 10%"
     )
 
-    comparacion = pd.DataFrame({
-        "Modelo": [
-            "Red neuronal Keras",
-            "XGBoost"
-        ],
-        "Precisión Top 10% (%)": [
-            48.67,
-            48.93
-        ]
-    })
+    comparacion = pd.DataFrame(
+        {
+            "Modelo": [
+                "Red neuronal Keras",
+                "XGBoost",
+            ],
+            "Precisión Top 10% (%)": [
+                48.67,
+                48.93,
+            ],
+        }
+    )
 
     fig = px.bar(
         comparacion,
@@ -1941,18 +2225,18 @@ def plus():
         y="Precisión Top 10% (%)",
         color="Modelo",
         text_auto=".2f",
-        range_y=[0, 60]
+        range_y=[0, 60],
     )
 
     st.plotly_chart(
         fig,
-        use_container_width=True
+        use_container_width=True,
     )
 
     st.dataframe(
         comparacion,
         use_container_width=True,
-        hide_index=True
+        hide_index=True,
     )
 
     st.success(
@@ -1975,38 +2259,40 @@ def plus():
         "Curva de pérdida por época"
     )
 
-    perdidas = pd.DataFrame({
-        "Época": list(range(1, 11)),
-        "Entrenamiento": [
-            0.3591,
-            0.3265,
-            0.3215,
-            0.3177,
-            0.3147,
-            0.3125,
-            0.3107,
-            0.3090,
-            0.3074,
-            0.3058
-        ],
-        "Validación": [
-            0.3109,
-            0.3068,
-            0.3051,
-            0.3044,
-            0.3039,
-            0.3040,
-            0.3043,
-            0.3047,
-            0.3055,
-            0.3061
-        ]
-    })
+    perdidas = pd.DataFrame(
+        {
+            "Época": list(range(1, 11)),
+            "Entrenamiento": [
+                0.3591,
+                0.3265,
+                0.3215,
+                0.3177,
+                0.3147,
+                0.3125,
+                0.3107,
+                0.3090,
+                0.3074,
+                0.3058,
+            ],
+            "Validación": [
+                0.3109,
+                0.3068,
+                0.3051,
+                0.3044,
+                0.3039,
+                0.3040,
+                0.3043,
+                0.3047,
+                0.3055,
+                0.3061,
+            ],
+        }
+    )
 
     grafico = perdidas.melt(
         id_vars="Época",
         var_name="Conjunto",
-        value_name="Pérdida"
+        value_name="Pérdida",
     )
 
     fig = px.line(
@@ -2014,12 +2300,12 @@ def plus():
         x="Época",
         y="Pérdida",
         color="Conjunto",
-        markers=True
+        markers=True,
     )
 
     st.plotly_chart(
         fig,
-        use_container_width=True
+        use_container_width=True,
     )
 
     st.info(
@@ -2071,7 +2357,7 @@ def ficha():
 
     titulo(
         "📄 Ficha del modelo",
-        "Características, resultados y limitaciones"
+        "Características, resultados y limitaciones",
     )
 
     texto = archivo_texto(
@@ -2086,7 +2372,7 @@ def ficha():
             "Descargar ficha",
             data=texto,
             file_name="ficha_modelo.md",
-            mime="text/markdown"
+            mime="text/markdown",
         )
 
         return
@@ -2176,45 +2462,45 @@ def ficha():
 
 
 # ============================================================
-# NAVEGACIÓN DE LA APLICACIÓN
+# NAVEGACIÓN
 # ============================================================
 
 paginas = [
     st.Page(
         inicio,
         title="Inicio",
-        icon="🏠"
+        icon="🏠",
     ),
     st.Page(
         riesgo,
         title="Predicción de riesgo",
-        icon="⚠️"
+        icon="⚠️",
     ),
     st.Page(
         comentarios,
         title="Análisis de comentarios",
-        icon="💬"
+        icon="💬",
     ),
     st.Page(
         segmentos,
         title="Segmentación 3B",
-        icon="👥"
+        icon="👥",
     ),
     st.Page(
         validacion,
         title="Validación y resultados",
-        icon="📈"
+        icon="📈",
     ),
     st.Page(
         plus,
         title="Plus · Keras vs. XGBoost",
-        icon="🧠"
+        icon="🧠",
     ),
     st.Page(
         ficha,
         title="Ficha del modelo",
-        icon="📄"
-    )
+        icon="📄",
+    ),
 ]
 
 st.navigation(paginas).run()
