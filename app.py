@@ -1,7 +1,6 @@
 from pathlib import Path
 import json
 import pandas as pd
-import numpy as np
 import plotly.express as px
 import streamlit as st
 import requests
@@ -74,6 +73,7 @@ def inicio():
     st.info('La capacidad operativa planteada en la guía es contactar al 10% de pedidos de mayor riesgo. Una predicción es una ayuda para priorizar, no una decisión automática sobre clientes o vendedores.')
     st.subheader('Componentes de la solución')
     st.markdown('**Predicción:** pipeline XGBoost servido mediante FastAPI en Render.  \n**Comentarios:** resultados del modelo de sentimiento contrastados con estrellas.  \n**Vendedores:** segmentación K-Means y propuestas de mejora por grupo.')
+    st.markdown('**Extra (+5 puntos):** comparación de red neuronal Keras frente a XGBoost, con early stopping y curva de pérdida.')
     st.subheader('Disponibilidad de archivos')
     for nombre in ['segmentacion_vendedores.csv','sentimiento_comentarios.csv','perfiles_segmentos.csv','desacuerdos_analizados.csv','conclusion_comentarios.md','ficha_modelo.md']:
         st.write(('✅ ' if (ROOT/nombre).exists() else '⚪ ')+nombre)
@@ -150,7 +150,7 @@ def comentarios():
     st.metric('Registros en archivo',f'{len(df):,}')
     st.caption('Columnas disponibles: '+', '.join(map(str,df.columns)))
     estrella=buscar(df,'review_score','estrellas','puntuacion','calificacion')
-    sentimiento=buscar(df,'sentimiento','sentiment','sentiment_label','etiqueta_sentimiento','prediccion_sentimiento')
+    sentimiento=buscar(df,'sentimiento_modelo','prediccion_sentimiento','etiqueta_sentimiento','sentimiento','sentiment_label','sentiment')
     if sentimiento:
         st.subheader('Distribución de sentimientos')
         conteo=df[sentimiento].fillna('Sin etiqueta').astype(str).value_counts().reset_index()
@@ -163,20 +163,42 @@ def comentarios():
         st.dataframe(tabla,use_container_width=True)
         st.plotly_chart(px.imshow(tabla,text_auto=True,aspect='auto',labels={'x':'Sentimiento','y':'Estrellas','color':'Comentarios'}),use_container_width=True)
         st.caption('La tabla cruzada muestra cantidades; no implica que las estrellas y el texto siempre coincidan.')
+    st.subheader('Coincidencia entre sentimiento y estrellas')
     coincidencia=buscar(df,'coincide','coincidencia','acuerdo','match')
     if coincidencia:
-        serie=df[coincidencia].dropna()
-        if pd.api.types.is_bool_dtype(serie) or set(serie.astype(str).str.lower().unique()).issubset({'true','false','0','1'}):
-            porcentaje=serie.astype(str).str.lower().isin(['true','1']).mean()
+        serie=df[coincidencia].dropna().astype(str).str.strip().str.lower()
+        validos=serie.isin(['true','false','0','1','si','sí','no'])
+        if validos.all() and len(serie):
+            porcentaje=serie.isin(['true','1','si','sí']).mean()
             st.metric('Coincidencia texto-estrellas',f'{porcentaje:.2%}')
-        else:st.info('La columna de coincidencia existe, pero requiere verificar su codificación antes de calcular el porcentaje.')
-    else:st.info('El porcentaje de coincidencia debe calcularse con la definición utilizada en el notebook; no se infiere automáticamente de etiquetas desconocidas.')
+            st.caption(f'Calculado a partir de {len(serie):,} registros con indicador de coincidencia.')
+        else:
+            st.warning('La columna de coincidencia contiene etiquetas no reconocidas; revisa su codificación.')
+    elif estrella and sentimiento:
+        mapa={'positive':'positive','positivo':'positive','negative':'negative','negativo':'negative','neutral':'neutral','neutro':'neutral'}
+        etiquetas=df[sentimiento].astype(str).str.strip().str.lower().map(mapa)
+        notas=pd.to_numeric(df[estrella],errors='coerce')
+        esperadas=notas.map(lambda n: 'negative' if pd.notna(n) and n<=2 else ('neutral' if pd.notna(n) and n==3 else ('positive' if pd.notna(n) and n>=4 else None)))
+        validos=etiquetas.notna() & esperadas.notna()
+        if validos.any():
+            st.metric('Coincidencia texto-estrellas',f'{(etiquetas[validos]==esperadas[validos]).mean():.2%}')
+            st.caption('Regla de la rúbrica: 1–2 negativo, 3 neutro y 4–5 positivo.')
+        else:
+            st.info('No se pudo calcular la coincidencia con las etiquetas disponibles.')
+    else:
+        st.info('Faltan columnas para calcular la coincidencia entre texto y estrellas.')
     st.subheader('Cinco desacuerdos interpretados')
     desacuerdos=cargar_csv('desacuerdos_analizados.csv')
     if desacuerdos is not None:
         st.dataframe(desacuerdos,use_container_width=True)
         if len(desacuerdos)<5:st.warning('La rúbrica requiere al menos cinco desacuerdos analizados.')
-    else:st.warning('Pendiente: subir desacuerdos_analizados.csv con cinco casos reales y su interpretación.')
+    else:
+        st.warning('Falta el archivo de cinco desacuerdos interpretados por el equipo. A continuación se muestran candidatos reales, NO interpretaciones realizadas.')
+        if coincidencia and sentimiento and estrella:
+            flags=df[coincidencia].astype(str).str.lower().isin(['false','0','no'])
+            candidatos=df.loc[flags].head(10)
+            if len(candidatos):st.dataframe(candidatos,use_container_width=True)
+
     st.subheader('¿Qué aporta el texto frente a las estrellas?')
     conclusion=archivo_texto('conclusion_comentarios.md')
     if conclusion:st.markdown(conclusion)
@@ -216,7 +238,9 @@ def segmentos():
             largo=perfiles.reset_index().melt(id_vars=seg,var_name='Indicador',value_name='Promedio')
             st.plotly_chart(px.bar(largo,x=seg,y='Promedio',color='Indicador',barmode='group'),use_container_width=True)
             st.caption('Los indicadores tienen unidades diferentes: comparar principalmente un mismo indicador entre segmentos.')
-    else:st.warning('No se encontraron indicadores numéricos utilizables en el archivo. Revisa que el CSV actualizado esté publicado.')
+    else:
+        st.warning('Este CSV solo permite ver la asignación de vendedores a segmentos, no los perfiles cuantitativos. Necesitas exportar desde Colab las variables por vendedor (pedidos, ventas, categorías, tasa de retraso y flete relativo).')
+        st.caption('No se pueden deducir estas métricas únicamente de seller_id y segmento.')
     st.subheader('Nombres y acciones por segmento')
     perfiles_csv=cargar_csv('perfiles_segmentos.csv')
     if perfiles_csv is not None:
@@ -242,7 +266,7 @@ def validacion():
     titulo('📈 Validación y resultados','Comparación de modelos y decisiones de selección')
     st.write('La evaluación temporal evita utilizar información posterior al corte al medir el rendimiento de un modelo. Los siguientes valores corresponden a los resultados compartidos del notebook.')
     a,b,c=st.columns(3)
-    a.metric('Pedidos para entrenamiento','57,065')
+    a.metric('Pedidos de entrenamiento (comparación principal)','57,065')
     b.metric('Pedidos para validación','15,461')
     c.metric('Precisión Top 10% · XGBoost','49.48%')
     resultados=pd.DataFrame({'Método':['Selección aleatoria','Regla del retraso','Regresión logística','XGBoost'],'Precisión Top 10%':[11.89,38.55,45.99,49.48]})
@@ -252,6 +276,34 @@ def validacion():
     st.write('En términos sencillos, de cada 10 pedidos priorizados por XGBoost, aproximadamente 5 recibieron una mala reseña en esta validación. Es una interpretación aproximada de la precisión Top 10%, no una garantía individual.')
     st.warning('Estas cifras no son el resultado de evaluar pedidos ocultos del docente. La generalización debe comprobarse por separado.')
     st.info('Revisar en el notebook la consistencia entre las fechas disponibles al momento de predecir, la ausencia de fuga de datos y el umbral utilizado por la API.')
+
+
+
+def plus():
+    titulo('🧠 Plus · Red neuronal vs. XGBoost', 'Extra de la rúbrica (+5 puntos) · Red neuronal densa Keras con early stopping')
+    st.write('Se entrenó una red neuronal densa con las mismas variables procesadas y la misma muestra de validación temporal utilizada para la comparación con XGBoost. Los valores siguientes provienen de las salidas ejecutadas del notebook, no de una nueva ejecución en Streamlit.')
+    a,b,c=st.columns(3)
+    a.metric('Pedidos de validación','15,461')
+    b.metric('Características procesadas','140')
+    c.metric('Mejor época de Keras','5 de 10')
+    st.subheader('Precisión entre el 10% de pedidos con mayor riesgo')
+    comparacion=pd.DataFrame({'Modelo':['Red neuronal Keras','XGBoost'],'Precisión Top 10% (%)':[48.67,48.93]})
+    st.plotly_chart(px.bar(comparacion,x='Modelo',y='Precisión Top 10% (%)',color='Modelo',text_auto='.2f',range_y=[0,60]),use_container_width=True)
+    st.dataframe(comparacion,hide_index=True,use_container_width=True)
+    st.success('XGBoost supera a Keras por 0.26 puntos porcentuales en esta ejecución comparable.')
+    st.caption('Nota de trazabilidad: otra sección anterior del notebook reporta 49.48% para XGBoost. Para comparar Keras vs. XGBoost se usan los valores de la celda del extra, que evaluó ambos modelos sobre la misma muestra.')
+    st.subheader('Curva de pérdida por época')
+    st.caption('Valores redondeados mostrados por el registro de entrenamiento de Keras en Colab. No son mediciones realizadas por esta app.')
+    # Pérdidas redondeadas de las 10 épocas, extraídas del registro del notebook.
+    perdidas=pd.DataFrame({'Época':list(range(1,11)),
+                            'Entrenamiento':[0.3591,0.3265,0.3215,0.3177,0.3147,0.3125,0.3107,0.3090,0.3074,0.3058],
+                            'Validación':[0.3109,0.3068,0.3051,0.3044,0.3039,0.3040,0.3043,0.3047,0.3055,0.3061]})
+    st.plotly_chart(px.line(perdidas.melt(id_vars='Época',var_name='Conjunto',value_name='Pérdida'),x='Época',y='Pérdida',color='Conjunto',markers=True),use_container_width=True)
+    st.info('La menor pérdida de validación fue 0.3039 en la época 5. Aunque el error de entrenamiento continuó disminuyendo, el de validación dejó de mejorar; early stopping detuvo el entrenamiento tras 10 épocas y recuperó los mejores pesos.')
+    st.subheader('Arquitectura y conclusión')
+    st.write('Red neuronal densa: entrada de 140 características → capa de 64 neuronas ReLU → capa de 32 neuronas ReLU → salida sigmoide. Optimizador Adam, pérdida binary crossentropy, lote 256 y paciencia 5 para early stopping.')
+    st.write('Los resultados son cercanos. En esta ejecución XGBoost fue ligeramente superior, por lo que sigue siendo razonable mantenerlo en la API. En datos tabulares, los árboles potenciados pueden capturar interacciones sin requerir la misma adaptación que una red densa.')
+    st.warning('La curva utiliza las 10 épocas del registro de Colab, redondeadas a cuatro decimales; para reproducir valores de precisión completa se debe exportar historial_nn.history.')
 
 
 def ficha():
@@ -265,7 +317,7 @@ def ficha():
     st.subheader('1. Para qué sirve y para qué no')
     st.write('Estima el riesgo de una reseña de 1 o 2 estrellas y ayuda a priorizar contactos. No debe usarse para sancionar vendedores ni para tomar decisiones irreversibles.')
     st.subheader('2. Datos')
-    st.write('Proyecto basado en datos de Olist. En el notebook se reportan 77,304 pedidos en la tabla de trabajo y 57,065 para entrenamiento y 15,461 para validación temporal estricta. Falta documentar aquí el periodo exacto y todas las exclusiones.')
+    st.write('Proyecto basado en datos de Olist. Los resultados del notebook muestran 15,461 pedidos de validación temporal. El número de entrenamiento depende de la ejecución comparada (en el extra se registraron 61,843). Falta consolidar el periodo exacto, exclusiones y versión final en ficha_modelo.md.')
     st.subheader('3. Qué tan bien funciona')
     st.write('Precisión Top 10% en validación temporal: XGBoost 49.48%, regresión logística 45.99%, regla del retraso 38.55% y azar 11.89%. Aproximadamente 5 de cada 10 pedidos priorizados por XGBoost presentaron el resultado de interés.')
     st.subheader('4. Límites conocidos')
@@ -281,6 +333,7 @@ paginas=[
     st.Page(comentarios,title='Análisis de comentarios',icon='💬'),
     st.Page(segmentos,title='Segmentación 3B',icon='👥'),
     st.Page(validacion,title='Validación y resultados',icon='📈'),
+    st.Page(plus,title='Plus · Keras vs. XGBoost',icon='🧠'),
     st.Page(ficha,title='Ficha del modelo',icon='📄'),
 ]
 st.navigation(paginas).run()
