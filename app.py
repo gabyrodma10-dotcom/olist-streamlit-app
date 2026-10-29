@@ -1492,7 +1492,7 @@ def segmentos():
 
     # Indicadores generales
 
-    a, b = st.columns(2)
+    a, b, c = st.columns(3)
 
     a.metric(
         "Segmentos identificados",
@@ -1508,6 +1508,20 @@ def segmentos():
             if identificador
             else f"{len(df):,}"
         ),
+    )
+
+    c.metric(
+        "Varianza explicada · PCA",
+        "64.64%",
+    )
+
+    st.caption(
+        "Los dos primeros componentes principales del PCA "
+        "explican conjuntamente el 64.64% de la variabilidad "
+        "de las características utilizadas para segmentar "
+        "a los vendedores. El análisis completo está "
+        "documentado en el notebook de Colab. "
+        "Este porcentaje no representa la precisión de K-Means."
     )
 
     # Distribución de vendedores
