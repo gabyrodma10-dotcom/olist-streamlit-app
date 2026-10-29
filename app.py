@@ -61,10 +61,18 @@ EJEMPLOS={
 
 
 def inicio():
-    titulo('📊 Olist | Inteligencia de reseñas',
-           'Proyecto final de Machine Learning · Predicción, análisis de comentarios y segmentación')
-    st.markdown('### De los datos a decisiones para mejorar la experiencia de compra')
-    st.write('Esta solución analiza pedidos y reseñas de Olist para identificar situaciones que merecen atención, estudiar la relación entre los comentarios y las calificaciones, y comprender diferentes perfiles de vendedores.')
+    st.caption('PROYECTO FINAL · MACHINE LEARNING')
+    izq, der = st.columns([1.15, 1], gap='large', vertical_alignment='center')
+    with izq:
+        st.title('De los datos a las decisiones')
+        st.write('Este proyecto integra modelos de aprendizaje automático y análisis de datos para identificar patrones de riesgo, comprender la satisfacción de los clientes y detectar oportunidades de mejora en la operación de los vendedores.')
+        st.caption('Olist · Predicción de reseñas · Análisis de comentarios · Segmentación de vendedores')
+    with der:
+        imagen = ROOT / 'olist_resenas_portada.png'
+        if imagen.exists():
+            st.image(str(imagen), use_container_width=True)
+        else:
+            st.info('Ilustración de reseñas: agrega olist_resenas_portada.png a la raíz del repositorio.')
 
     vendedores=cargar_csv('segmentacion_vendedores.csv')
     comentarios=cargar_csv('sentimiento_comentarios.csv')
@@ -73,26 +81,25 @@ def inicio():
     b.metric('Comentarios analizados',f'{len(comentarios):,}' if comentarios is not None else 'No disponible')
     c.metric('Áreas de análisis','3')
 
-    st.subheader('¿Qué puedes explorar?')
+    st.subheader('¿Qué encontrarás en esta aplicación?')
     col1,col2=st.columns(2)
     with col1:
         with st.container(border=True):
-            st.markdown('#### ⚠️ Predicción de riesgo')
-            st.write('Simula un pedido y consulta su probabilidad estimada de recibir una reseña de 1 o 2 estrellas mediante un modelo XGBoost conectado a FastAPI.')
+            st.markdown('#### 📦 Predicción de riesgo')
+            st.write('Simula un pedido y consulta la probabilidad estimada de recibir una reseña de 1 o 2 estrellas mediante XGBoost y FastAPI.')
         with st.container(border=True):
             st.markdown('#### 👥 Segmentación de vendedores')
             st.write('Explora los grupos identificados con K-Means y sus diferencias en pedidos, ventas, categorías, retrasos y costos de envío.')
     with col2:
         with st.container(border=True):
             st.markdown('#### 💬 Análisis de comentarios')
-            st.write('Compara el sentimiento expresado en las reseñas con la calificación en estrellas e identifica coincidencias y diferencias.')
+            st.write('Compara el sentimiento expresado en las reseñas con las estrellas otorgadas por los clientes.')
         with st.container(border=True):
             st.markdown('#### 📈 Validación y comparación de modelos')
-            st.write('Consulta el desempeño de los modelos frente a alternativas sencillas y la comparación adicional de Keras con XGBoost.')
+            st.write('Revisa el desempeño de los modelos, sus comparaciones y el análisis adicional de Keras frente a XGBoost.')
 
     st.subheader('¿Cómo usar la aplicación?')
-    st.write('**1.** Abre una sección desde el menú lateral.  \n**2.** Explora los resultados o prueba un pedido en el simulador.  \n**3.** Consulta la validación y la ficha del modelo para entender el alcance y las limitaciones.')
-    st.caption('Los resultados son apoyo para el análisis y la priorización; no sustituyen la revisión humana ni constituyen decisiones automáticas sobre clientes o vendedores.')
+    st.markdown('**1.** Selecciona una sección en el menú lateral.  \n**2.** Explora los resultados o prueba un pedido en el simulador.  \n**3.** Consulta la validación y la ficha del modelo para profundizar en la metodología.')
 
 
 def riesgo():
