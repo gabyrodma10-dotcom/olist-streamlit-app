@@ -80,68 +80,101 @@ def inicio():
 
 
 def riesgo():
-    titulo('⚠️ Predicción de riesgo','Consulta en vivo al servicio FastAPI desplegado en Render')
-    st.write('Prueba un pedido válido, modifica sus datos o envía un JSON propio. La API verifica los campos y devuelve la probabilidad estimada de una mala reseña.')
-    modo=st.radio('Modo de prueba',['Ejemplo guiado','JSON editable'],horizontal=True)
-    ejemplo=st.selectbox('Caso de demostración',list(EJEMPLOS))
-    datos=EJEMPLOS[ejemplo].copy()
-    if modo=='Ejemplo guiado':
-        with st.form('formulario_riesgo'):
-            a,b=st.columns(2)
-            with a:
-                datos['order_id']=st.text_input('ID del pedido',datos['order_id'])
-                datos['estado_cliente']=st.text_input('Estado del cliente',datos['estado_cliente'])
-                datos['estado_vendedor']=st.text_input('Estado del vendedor',datos['estado_vendedor'])
-                datos['categoria']=st.text_input('Categoría',datos['categoria'])
-                datos['tipo_pago']=st.text_input('Tipo de pago',datos['tipo_pago'])
-                datos['n_items']=st.number_input('Número de artículos',min_value=0,value=int(datos['n_items']))
-                datos['n_vendedores']=st.number_input('Número de vendedores',min_value=0,value=int(datos['n_vendedores']))
-                datos['cuotas_max']=st.number_input('Cuotas máximas',min_value=0.0,value=float(datos['cuotas_max']))
-            with b:
-                for campo,etiqueta in [('order_purchase_timestamp','Fecha de compra'),('order_approved_at','Fecha de aprobación'),('order_delivered_carrier_date','Fecha entregada al transportista'),('order_delivered_customer_date','Fecha de entrega al cliente'),('order_estimated_delivery_date','Fecha estimada de entrega')]:
-                    datos[campo]=st.text_input(etiqueta+' (AAAA-MM-DDTHH:MM:SS)',datos[campo])
-                for campo,etiqueta in [('precio_total','Precio total'),('flete_total','Flete total'),('peso_total_g','Peso total (g)'),('fotos_promedio','Promedio de fotos')]:
+    titulo('⚠️ Predicción de riesgo', 'Simulador sencillo de pedidos · conectado a FastAPI')
+    st.write('**¿Qué queremos saber?** Si un pedido podría recibir una reseña de 1 o 2 estrellas.')
+    st.info('Empieza con un caso preparado. Solo necesitas pulsar **Calcular riesgo**. Después puedes cambiar los días de entrega y comparar.')
+    caso=st.radio(
+        '1. Elige un escenario',
+        ['📦 Entrega puntual', '🚚 Entrega con retraso'],
+        horizontal=True,
+        help='Son ejemplos de demostración, no pedidos reales.'
+    )
+    clave='Riesgo bajo (entrega puntual)' if caso.startswith('📦') else 'Riesgo alto (entrega tardía)'
+    datos=EJEMPLOS[clave].copy()
+
+    fecha_estimada=pd.to_datetime(datos['order_estimated_delivery_date'])
+    fecha_real=pd.to_datetime(datos['order_delivered_customer_date'])
+    diferencia=(fecha_real.normalize()-fecha_estimada.normalize()).days
+
+    st.subheader('2. Revisa o cambia el pedido')
+    with st.form('simulador_riesgo'):
+        a,b,c=st.columns(3)
+        a.metric('Fecha prometida', fecha_estimada.strftime('%d/%m/%Y'))
+        b.metric('Entrega del ejemplo', fecha_real.strftime('%d/%m/%Y'))
+        c.metric('Días respecto al plazo',f'{diferencia:+d}',help='Negativo: antes de lo previsto. Positivo: después.')
+        dias=st.slider(
+            '¿Cuántos días antes o después de la fecha prometida llegó el pedido?',
+            min_value=-10,max_value=20,value=int(diferencia),
+            help='-3 significa tres días antes; +8 significa ocho días de retraso.'
+        )
+        fecha_nueva=fecha_estimada+pd.Timedelta(days=dias)
+        datos['order_delivered_customer_date']=fecha_nueva.strftime('%Y-%m-%dT15:00:00')
+        if dias>0:
+            st.warning(f'En esta simulación el pedido llega **{dias} días tarde**.')
+        elif dias<0:
+            st.success(f'En esta simulación el pedido llega **{abs(dias)} días antes**.')
+        else:
+            st.success('En esta simulación el pedido llega **justo en la fecha prometida**.')
+        with st.expander('⚙️ Ajustes avanzados (opcional): ver y editar los 17 campos'):
+            st.caption('No necesitas tocar estos campos para la demostración básica.')
+            izq,der=st.columns(2)
+            with izq:
+                for campo,etiqueta in [('order_id','ID del pedido'),('estado_cliente','Estado del cliente'),('estado_vendedor','Estado del vendedor'),('categoria','Categoría'),('tipo_pago','Tipo de pago')]:
+                    datos[campo]=st.text_input(etiqueta,value=str(datos[campo]))
+                for campo,etiqueta in [('n_items','Número de artículos'),('n_vendedores','Número de vendedores'),('cuotas_max','Cuotas máximas')]:
+                    datos[campo]=st.number_input(etiqueta,min_value=0,value=int(datos[campo]),step=1)
+            with der:
+                for campo,etiqueta in [('order_purchase_timestamp','Fecha de compra'),('order_approved_at','Fecha de aprobación'),('order_delivered_carrier_date','Entrega al transportista'),('order_delivered_customer_date','Entrega real'),('order_estimated_delivery_date','Entrega prometida')]:
+                    datos[campo]=st.text_input(etiqueta,value=str(datos[campo]))
+                for campo,etiqueta in [('precio_total','Precio total'),('flete_total','Costo de envío'),('peso_total_g','Peso en gramos'),('fotos_promedio','Fotos promedio')]:
                     datos[campo]=st.number_input(etiqueta,min_value=0.0,value=float(datos[campo]))
-            enviar=st.form_submit_button('Calcular riesgo',type='primary')
-    else:
-        st.caption('Para comprobar el error HTTP 422 puedes poner un precio negativo o eliminar un campo obligatorio.')
-        texto=st.text_area('Cuerpo JSON',value=json.dumps(datos,indent=2,ensure_ascii=False),height=450)
-        enviar=st.button('Enviar JSON a la API',type='primary')
-        if enviar:
-            try:datos=json.loads(texto)
-            except json.JSONDecodeError as exc:
-                st.error(f'El texto no es un JSON válido: {exc}')
-                return
+        enviar=st.form_submit_button('🔎 Calcular riesgo del pedido',type='primary',use_container_width=True)
+
+    with st.expander('🧪 Prueba técnica de la API (JSON editable)'):
+        st.caption('Para la defensa: permite enviar un JSON manual y comprobar errores HTTP 422.')
+        texto=st.text_area('JSON del pedido',value=json.dumps(datos,indent=2,ensure_ascii=False),height=250)
+    if st.button('Enviar JSON técnico',key='json_tecnico'):
+        try:
+            datos=json.loads(texto)
+            enviar=True
+        except json.JSONDecodeError as exc:
+            st.error(f'JSON inválido: {exc}')
+            return
     if not enviar:return
-    with st.spinner('Consultando API. Render puede tardar aproximadamente un minuto en despertar...'):
+    with st.spinner('Consultando el modelo. Render puede tardar hasta un minuto en activarse...'):
         try:
             respuesta=requests.post(api_url()+'/riesgo',json=datos,timeout=100)
         except requests.exceptions.Timeout:
-            st.error('La API tardó demasiado en responder. Espera un momento y vuelve a intentarlo.');return
-        except requests.exceptions.RequestException as exc:
-            st.error('No se pudo conectar con la API. Comprueba el despliegue en Render.');st.caption(str(exc));return
-    st.caption(f'Código HTTP: {respuesta.status_code}')
+            st.error('La API tardó demasiado. Intenta de nuevo en un momento.');return
+        except requests.exceptions.RequestException:
+            st.error('No se pudo conectar con la API de Render.');return
     if respuesta.status_code==422:
-        st.warning('La API rechazó el pedido por un error de validación (HTTP 422).')
+        st.warning('La API rechazó los datos (HTTP 422). Revisa los campos.')
         try:st.json(respuesta.json())
         except ValueError:st.code(respuesta.text)
         return
     if not respuesta.ok:
         st.error(f'La API devolvió HTTP {respuesta.status_code}.')
-        st.code(respuesta.text[:1500]);return
+        st.code(respuesta.text[:1000]);return
     try:resultado=respuesta.json()
-    except ValueError:st.error('La respuesta no contiene JSON válido.');return
+    except ValueError:
+        st.error('La API no devolvió un JSON válido.');return
     prob=resultado.get('probabilidad')
     alto=resultado.get('riesgo_alto')
     if prob is None:
-        st.error('La API respondió, pero no incluyó la probabilidad esperada.');st.json(resultado);return
-    st.metric('Probabilidad estimada de mala reseña',f'{float(prob):.2%}')
-    if alto is True:st.error('Riesgo alto: considerar seguimiento prioritario por atención al cliente.')
-    elif alto is False:st.success('Riesgo no alto según el umbral configurado en la API.')
-    else:st.info('La API no devolvió una clasificación de riesgo alto/bajo.')
-    st.caption('La probabilidad no garantiza el resultado. El umbral se administra en FastAPI; no se modifica desde esta app.')
-    with st.expander('Respuesta completa de la API'):st.json(resultado)
-
+        st.error('La API no devolvió la probabilidad esperada.');st.json(resultado);return
+    st.subheader('3. Resultado de la predicción')
+    st.metric('Probabilidad estimada de reseña negativa',f'{float(prob):.2%}')
+    if alto is True:
+        st.error('**Riesgo alto:** este pedido sería candidato a seguimiento prioritario.')
+    elif alto is False:
+        st.success('**Riesgo no alto:** el pedido no supera el umbral de priorización.')
+    else:
+        st.info('La API no incluyó una clasificación alto/no alto.')
+    st.caption('El modelo considera los 17 campos, no solo el retraso. La clasificación usa el umbral del 10% de pedidos con mayor riesgo, no un corte de 50%.')
+    st.caption('Estos ejemplos usan datos de entrega real: no representan una predicción antes de que el pedido sea entregado.')
+    with st.expander('Ver respuesta técnica completa'):
+        st.json(resultado)
 
 def comentarios():
     titulo('💬 Análisis de comentarios','Resultados del modelo de sentimiento comparados con las estrellas')
