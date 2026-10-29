@@ -20,6 +20,8 @@ st.set_page_config(
 
 ROOT = Path(__file__).resolve().parent
 API_DEFAULT = "https://api-olist-riesgo.onrender.com"
+# Percentil 90 observado en el notebook final. Verificar que coincida con main.py.
+UMBRAL_REFERENCIA = 0.262102
 
 st.markdown(
     """
@@ -313,339 +315,197 @@ def inicio():
 # ============================================================
 
 def riesgo():
-
     titulo(
         "⚠️ Predicción de riesgo",
-        "Simulador de pedidos conectado a FastAPI"
+        "Consulta el modelo XGBoost desplegado en FastAPI y prioriza pedidos según su riesgo de reseña negativa."
     )
 
     st.write(
-        "**¿Qué queremos saber?** "
-        "Si un pedido podría recibir una reseña "
-        "de 1 o 2 estrellas."
+        "El modelo estima la probabilidad de recibir **1 o 2 estrellas**. "
+        "Para la priorización se utiliza el **10% de pedidos con mayor riesgo** "
+        "según un umbral establecido con datos de entrenamiento."
     )
-
     st.info(
-        "Selecciona un escenario, ajusta los días "
-        "de entrega y consulta la predicción."
+        "**Demostración posterior a la entrega:** se usan fechas reales de entrega. "
+        "No es una predicción disponible antes de entregar el pedido. "
+        "No se utiliza texto, longitud ni fecha de la reseña."
     )
 
     caso = st.radio(
-        "1. Elige un escenario",
-        [
-            "📦 Entrega puntual",
-            "🚚 Entrega con retraso"
-        ],
+        "1. Selecciona un escenario de ejemplo",
+        ["📦 Entrega puntual", "🚚 Entrega con retraso"],
         horizontal=True,
-        help="Son ejemplos de demostración, no pedidos reales."
+        help="Pedidos ficticios para probar el funcionamiento de la API."
     )
-
-    clave = (
-        "Entrega puntual"
-        if caso.startswith("📦")
-        else "Entrega con retraso"
-    )
-
+    clave = "Entrega puntual" if caso.startswith("📦") else "Entrega con retraso"
     datos = EJEMPLOS[clave].copy()
-
-    fecha_estimada = pd.to_datetime(
-        datos["order_estimated_delivery_date"]
-    )
-
-    fecha_real = pd.to_datetime(
-        datos["order_delivered_customer_date"]
-    )
-
-    diferencia = (
-        fecha_real.normalize()
-        - fecha_estimada.normalize()
-    ).days
+    fecha_estimada = pd.to_datetime(datos["order_estimated_delivery_date"])
+    fecha_real = pd.to_datetime(datos["order_delivered_customer_date"])
+    diferencia = (fecha_real.normalize() - fecha_estimada.normalize()).days
 
     st.subheader("2. Revisa o cambia el pedido")
-
     with st.form("simulador_riesgo"):
-
         a, b, c = st.columns(3)
-
-        a.metric(
-            "Fecha prometida",
-            fecha_estimada.strftime("%d/%m/%Y")
-        )
-
-        b.metric(
-            "Entrega del ejemplo",
-            fecha_real.strftime("%d/%m/%Y")
-        )
-
-        c.metric(
-            "Días respecto al plazo",
-            f"{diferencia:+d}"
-        )
+        a.metric("Fecha prometida", fecha_estimada.strftime("%d/%m/%Y"))
+        b.metric("Entrega del ejemplo", fecha_real.strftime("%d/%m/%Y"))
+        c.metric("Días respecto al plazo", f"{diferencia:+d}")
 
         dias = st.slider(
-            "¿Cuántos días antes o después "
-            "de la fecha prometida llegó el pedido?",
-            min_value=-10,
-            max_value=20,
-            value=int(diferencia),
-            help=(
-                "-3 significa tres días antes; "
-                "+8 significa ocho días tarde."
-            )
+            "¿Cuántos días antes o después de la fecha prometida llegó el pedido?",
+            min_value=-10, max_value=20, value=int(diferencia),
+            help="-3: tres días antes. +8: ocho días tarde."
         )
-
-        fecha_nueva = (
-            fecha_estimada
-            + pd.Timedelta(days=dias)
-        )
-
-        datos["order_delivered_customer_date"] = (
-            fecha_nueva.strftime("%Y-%m-%dT15:00:00")
-        )
+        fecha_nueva = fecha_estimada + pd.Timedelta(days=dias)
+        datos["order_delivered_customer_date"] = fecha_nueva.strftime("%Y-%m-%dT15:00:00")
 
         if dias > 0:
-            st.warning(
-                f"El pedido llega **{dias} días tarde**."
-            )
-
+            st.warning(f"El pedido llega **{dias} días tarde**.")
         elif dias < 0:
-            st.success(
-                f"El pedido llega "
-                f"**{abs(dias)} días antes**."
-            )
-
+            st.success(f"El pedido llega **{abs(dias)} días antes**.")
         else:
-            st.success(
-                "El pedido llega en la fecha prometida."
-            )
+            st.success("El pedido llega en la fecha prometida.")
 
-        with st.expander(
-            "⚙️ Ajustes avanzados (opcional)"
-        ):
-
-            st.caption(
-                "Puedes consultar y modificar los "
-                "campos enviados al modelo."
-            )
-
+        with st.expander("⚙️ Ajustes avanzados (opcional)"):
+            st.caption("Edita los datos del pedido que se enviarán a FastAPI.")
             izquierda, derecha = st.columns(2)
-
             with izquierda:
-
-                campos_texto = [
+                for campo, etiqueta in [
                     ("order_id", "ID del pedido"),
                     ("estado_cliente", "Estado del cliente"),
                     ("estado_vendedor", "Estado del vendedor"),
                     ("categoria", "Categoría"),
-                    ("tipo_pago", "Tipo de pago")
-                ]
-
-                for campo, etiqueta in campos_texto:
-
-                    datos[campo] = st.text_input(
-                        etiqueta,
-                        value=str(datos[campo])
-                    )
-
-                campos_enteros = [
+                    ("tipo_pago", "Tipo de pago"),
+                ]:
+                    datos[campo] = st.text_input(etiqueta, value=str(datos[campo]))
+                for campo, etiqueta in [
                     ("n_items", "Número de artículos"),
                     ("n_vendedores", "Número de vendedores"),
-                    ("cuotas_max", "Cuotas máximas")
-                ]
-
-                for campo, etiqueta in campos_enteros:
-
+                    ("cuotas_max", "Cuotas máximas"),
+                ]:
                     datos[campo] = st.number_input(
-                        etiqueta,
-                        min_value=0,
-                        value=int(datos[campo]),
-                        step=1
+                        etiqueta, min_value=0, value=int(datos[campo]), step=1
                     )
-
             with derecha:
-
-                campos_fechas = [
+                for campo, etiqueta in [
                     ("order_purchase_timestamp", "Fecha de compra"),
                     ("order_approved_at", "Fecha de aprobación"),
                     ("order_delivered_carrier_date", "Entrega al transportista"),
                     ("order_delivered_customer_date", "Entrega real"),
-                    ("order_estimated_delivery_date", "Entrega prometida")
-                ]
-
-                for campo, etiqueta in campos_fechas:
-
-                    datos[campo] = st.text_input(
-                        etiqueta,
-                        value=str(datos[campo])
-                    )
-
-                campos_numericos = [
+                    ("order_estimated_delivery_date", "Entrega prometida"),
+                ]:
+                    datos[campo] = st.text_input(etiqueta, value=str(datos[campo]))
+                for campo, etiqueta in [
                     ("precio_total", "Precio total"),
                     ("flete_total", "Costo de envío"),
                     ("peso_total_g", "Peso en gramos"),
-                    ("fotos_promedio", "Fotos promedio")
-                ]
-
-                for campo, etiqueta in campos_numericos:
-
+                    ("fotos_promedio", "Fotos promedio"),
+                ]:
                     datos[campo] = st.number_input(
-                        etiqueta,
-                        min_value=0.0,
-                        value=float(datos[campo])
+                        etiqueta, min_value=0.0, value=float(datos[campo])
                     )
 
         enviar = st.form_submit_button(
-            "🔎 Calcular riesgo del pedido",
-            type="primary",
-            use_container_width=True
+            "🔎 Calcular riesgo del pedido", type="primary", use_container_width=True
         )
 
-    with st.expander(
-        "🧪 Prueba técnica de la API (JSON editable)"
-    ):
-
-        st.caption(
-            "Permite enviar datos manualmente "
-            "y comprobar la respuesta de la API."
-        )
-
+    with st.expander("🧪 Prueba técnica de la API (JSON editable)"):
+        st.caption("Permite verificar el contrato de entrada y la respuesta del endpoint /riesgo.")
         texto = st.text_area(
-            "JSON del pedido",
-            value=json.dumps(
-                datos,
-                indent=2,
-                ensure_ascii=False
-            ),
-            height=250
+            "JSON del pedido", value=json.dumps(datos, indent=2, ensure_ascii=False),
+            height=280, key=f"json_{clave}"
         )
+        enviar_json = st.button("Enviar JSON técnico", key="json_tecnico")
 
-    if st.button(
-        "Enviar JSON técnico",
-        key="json_tecnico"
-    ):
-
+    if enviar_json:
         try:
             datos = json.loads(texto)
-            enviar = True
-
+            if not isinstance(datos, dict):
+                st.error("El JSON debe ser un objeto con los campos del pedido.")
+                return
         except json.JSONDecodeError as exc:
             st.error(f"JSON inválido: {exc}")
             return
-
-    if not enviar:
+    elif not enviar:
         return
 
-    with st.spinner(
-        "Consultando el modelo. "
-        "Render puede tardar en activarse..."
-    ):
-
+    with st.spinner("Consultando el modelo; Render puede tardar en activarse..."):
         try:
-            respuesta = requests.post(
-                api_url() + "/riesgo",
-                json=datos,
-                timeout=100
-            )
-
+            respuesta = requests.post(api_url() + "/riesgo", json=datos, timeout=120)
         except requests.exceptions.Timeout:
-            st.error(
-                "La API tardó demasiado. "
-                "Intenta nuevamente."
-            )
+            st.error("La API tardó demasiado. Vuelve a intentarlo en unos segundos.")
             return
-
-        except requests.exceptions.RequestException:
-            st.error(
-                "No se pudo conectar con la API."
-            )
+        except requests.exceptions.RequestException as exc:
+            st.error("No se pudo conectar con la API.")
+            st.caption(str(exc))
             return
 
     if respuesta.status_code == 422:
-
-        st.warning(
-            "La API rechazó los datos (HTTP 422)."
-        )
-
+        st.warning("La API rechazó los datos (HTTP 422). Revisa los campos y las fechas.")
         try:
             st.json(respuesta.json())
         except ValueError:
             st.code(respuesta.text)
-
         return
-
     if not respuesta.ok:
-
-        st.error(
-            f"La API devolvió HTTP "
-            f"{respuesta.status_code}."
-        )
-
+        st.error(f"La API devolvió HTTP {respuesta.status_code}.")
         st.code(respuesta.text[:1000])
         return
 
     try:
         resultado = respuesta.json()
-
-    except ValueError:
-        st.error(
-            "La API no devolvió un JSON válido."
-        )
+        probabilidad = float(resultado["probabilidad"])
+        if not 0 <= probabilidad <= 1:
+            raise ValueError("Probabilidad fuera de rango")
+    except (ValueError, TypeError, KeyError):
+        st.error("La API no devolvió una probabilidad válida.")
+        try:
+            st.json(respuesta.json())
+        except ValueError:
+            st.code(respuesta.text)
         return
 
-    probabilidad = resultado.get("probabilidad")
     alto = resultado.get("riesgo_alto")
-
-    if probabilidad is None:
-
-        st.error(
-            "La API no devolvió la probabilidad esperada."
-        )
-
-        st.json(resultado)
-        return
+    umbral_api = resultado.get("umbral_riesgo", resultado.get("umbral"))
+    try:
+        umbral = float(umbral_api) if umbral_api is not None else UMBRAL_REFERENCIA
+        if not 0 <= umbral <= 1:
+            raise ValueError("Umbral fuera de rango")
+    except (ValueError, TypeError):
+        umbral = UMBRAL_REFERENCIA
 
     st.subheader("3. Resultado de la predicción")
-
-    st.metric(
-        "Probabilidad estimada de reseña negativa",
-        f"{float(probabilidad):.2%}"
-    )
+    izquierda, derecha = st.columns(2)
+    izquierda.metric("Probabilidad estimada de 1–2 estrellas", f"{probabilidad:.2%}")
+    derecha.metric("Umbral de riesgo alto (Top 10%)", f"{umbral:.2%}")
 
     if alto is True:
-
-        st.error(
-            "**Riesgo alto:** este pedido sería "
-            "candidato a seguimiento prioritario."
-        )
-
+        st.error("**RIESGO ALTO · Priorizar seguimiento.** El pedido supera el criterio de la API.")
     elif alto is False:
-
-        st.success(
-            "**Riesgo no alto:** el pedido no supera "
-            "el umbral de priorización."
-        )
-
+        st.success("**RIESGO NO ALTO.** El pedido no fue priorizado por la API.")
     else:
+        st.warning("La API no devolvió una clasificación de riesgo alto/no alto.")
 
-        st.info(
-            "La API no incluyó una clasificación "
-            "de riesgo alto o no alto."
+    if umbral_api is None:
+        st.caption(
+            "El umbral mostrado (26.21%) proviene del cálculo final del notebook; "
+            "la clasificación se toma directamente de la API. "
+            "Comprueba que el umbral configurado en main.py sea el mismo."
         )
+    else:
+        st.caption("El umbral mostrado y la clasificación proceden de la API desplegada.")
 
-    st.caption(
-        "La clasificación utiliza el umbral de "
-        "priorización definido durante el entrenamiento."
+    st.markdown("**¿Cómo interpretar el resultado?**")
+    st.write(
+        "La probabilidad estima el riesgo individual de una reseña negativa. "
+        "El umbral sirve para decidir qué pedidos requieren atención prioritaria. "
+        "No significa que el 26.21% de los pedidos recibirá una mala reseña."
     )
-
     st.caption(
-        "Este simulador utiliza información de entrega "
-        "real, por lo que sus resultados no representan "
-        "predicciones realizadas antes de la entrega."
+        "El 10% se define al ordenar las probabilidades del conjunto de referencia; "
+        "no implica que exactamente el 10% de cada lote de pruebas quede clasificado como alto. "
+        "Los ejemplos son simulados y la evaluación del docente utiliza pedidos ocultos."
     )
-
-    with st.expander(
-        "Ver respuesta técnica completa"
-    ):
+    with st.expander("Ver respuesta técnica completa de FastAPI"):
         st.json(resultado)
 
 
