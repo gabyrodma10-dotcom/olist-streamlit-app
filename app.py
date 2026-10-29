@@ -275,17 +275,46 @@ def segmentos():
         st.warning('Este CSV solo permite ver la asignación de vendedores a segmentos, no los perfiles cuantitativos. Necesitas exportar desde Colab las variables por vendedor (pedidos, ventas, categorías, tasa de retraso y flete relativo).')
         st.caption('No se pueden deducir estas métricas únicamente de seller_id y segmento.')
     st.subheader('Nombres y acciones por segmento')
-    perfiles_csv=cargar_csv('perfiles_segmentos.csv')
-    if perfiles_csv is not None:
-        requeridas={'segmento','nombre','perfil','accion'}
-        if not requeridas.issubset(perfiles_csv.columns):
-            st.error('perfiles_segmentos.csv necesita las columnas: segmento, nombre, perfil, accion.')
-        else:
-            st.dataframe(perfiles_csv[['segmento','nombre','perfil','accion']],use_container_width=True)
-            faltantes=set(df[seg].astype(str).unique())-set(perfiles_csv['segmento'].astype(str).unique())
-            if faltantes:st.warning('Faltan perfiles de los segmentos: '+', '.join(sorted(faltantes)))
+    st.caption('Perfiles descriptivos calculados automáticamente a partir de los indicadores reales del CSV. Los nombres son propuestas interpretativas, no etiquetas aprendidas por K-Means.')
+    campos=['total_pedidos','ventas_totales','n_categorias','tasa_retraso','flete_relativo']
+    faltan=[c for c in campos if c not in trabajo.columns]
+    if faltan:
+        st.warning('No se pueden interpretar todos los segmentos: faltan indicadores '+', '.join(faltan))
     else:
-        st.warning('Falta perfiles_segmentos.csv. Los nombres y acciones deben provenir de la interpretación real del notebook; no se asignan automáticamente.')
+        base=trabajo.groupby(seg)[campos].mean()
+        globales=trabajo[campos].median()
+        registros=[]
+        for grupo, fila in base.iterrows():
+            volumen='alto' if fila['total_pedidos']>globales['total_pedidos'] else 'moderado o bajo'
+            ventas='altas' if fila['ventas_totales']>globales['ventas_totales'] else 'moderadas o bajas'
+            retrasos='elevados' if fila['tasa_retraso']>globales['tasa_retraso'] else 'contenidos'
+            flete='elevado' if fila['flete_relativo']>globales['flete_relativo'] else 'contenido'
+            if retrasos=='elevados' and volumen=='alto':
+                nombre='Alto volumen con retos de entrega'
+                accion='Priorizar revisión logística, tiempos de despacho y seguimiento de pedidos.'
+            elif retrasos=='elevados':
+                nombre='Vendedores con oportunidad logística'
+                accion='Investigar causas de retrasos y definir un plan de mejora del cumplimiento.'
+            elif volumen=='alto' and ventas=='altas':
+                nombre='Vendedores consolidados'
+                accion='Mantener buenas prácticas y explorar acciones para fortalecer su crecimiento.'
+            elif flete=='elevado':
+                nombre='Vendedores con flete relativo alto'
+                accion='Revisar costos y opciones de envío antes de proponer optimizaciones.'
+            else:
+                nombre='Vendedores de operación moderada'
+                accion='Monitorear resultados y explorar oportunidades de desarrollo comercial.'
+            perfil=(f"Pedidos: {fila['total_pedidos']:.1f} ({volumen}); "
+                    f"ventas: {fila['ventas_totales']:.2f} ({ventas}); "
+                    f"categorías: {fila['n_categorias']:.1f}; "
+                    f"tasa de retraso: {fila['tasa_retraso']:.3f} ({retrasos}); "
+                    f"flete relativo: {fila['flete_relativo']:.3f} ({flete}).")
+            registros.append({'Segmento':grupo,'Nombre propuesto':nombre,'Perfil basado en promedios':perfil,'Acción sugerida':accion})
+        tabla_perfiles=pd.DataFrame(registros)
+        st.dataframe(tabla_perfiles,use_container_width=True,hide_index=True)
+        st.info('Los criterios alto/bajo se comparan con la mediana de los vendedores del archivo. '
+                'Revisa estos nombres y acciones contra la interpretación de tu notebook antes de entregar: '
+                'son sugerencias automatizadas, no conclusiones validadas por el entrenamiento.')
     st.subheader('Explorador de vendedores')
     opciones=sorted(df[seg].dropna().unique(),key=str)
     elegido=st.selectbox('Filtrar segmento', ['Todos']+list(opciones))
