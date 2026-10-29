@@ -344,29 +344,38 @@ def riesgo():
     diferencia = (fecha_real.normalize() - fecha_estimada.normalize()).days
 
     st.subheader("2. Revisa o cambia el pedido")
-    with st.form("simulador_riesgo"):
-        a, b, c = st.columns(3)
-        a.metric("Fecha prometida", fecha_estimada.strftime("%d/%m/%Y"))
-        b.metric("Entrega del ejemplo", fecha_real.strftime("%d/%m/%Y"))
-        c.metric("Días respecto al plazo", f"{diferencia:+d}")
 
-        dias = st.slider(
-            "¿Cuántos días antes o después de la fecha prometida llegó el pedido?",
-            min_value=-10, max_value=20, value=int(diferencia),
-            help="-3: tres días antes. +8: ocho días tarde."
-        )
-        fecha_nueva = fecha_estimada + pd.Timedelta(days=dias)
-        datos["order_delivered_customer_date"] = fecha_nueva.strftime("%Y-%m-%dT15:00:00")
+    # La barra debe estar FUERA del formulario: así Streamlit actualiza
+    # las fechas, métricas y mensajes al moverla, sin pulsar el botón.
+    dias = st.slider(
+        "¿Cuántos días antes o después de la fecha prometida llegó el pedido?",
+        min_value=-10,
+        max_value=20,
+        value=int(diferencia),
+        key=f"dias_entrega_{clave}",
+        help="-3: tres días antes. +8: ocho días tarde."
+    )
+    fecha_nueva = fecha_estimada + pd.Timedelta(days=dias)
+    fecha_nueva_texto = fecha_nueva.strftime("%Y-%m-%dT15:00:00")
 
-        if dias > 0:
-            st.warning(f"El pedido llega **{dias} días tarde**.")
-        elif dias < 0:
-            st.success(f"El pedido llega **{abs(dias)} días antes**.")
-        else:
-            st.success("El pedido llega en la fecha prometida.")
+    a, b, c = st.columns(3)
+    a.metric("Fecha prometida", fecha_estimada.strftime("%d/%m/%Y"))
+    b.metric("Entrega del ejemplo", fecha_nueva.strftime("%d/%m/%Y"))
+    c.metric("Días respecto al plazo", f"{dias:+d}")
 
+    if dias > 0:
+        st.warning(f"El pedido llega **{dias} días tarde**.")
+    elif dias < 0:
+        st.success(f"El pedido llega **{abs(dias)} días antes**.")
+    else:
+        st.success("El pedido llega en la fecha prometida.")
+
+    # El dato enviado a la API siempre refleja la posición de la barra.
+    datos["order_delivered_customer_date"] = fecha_nueva_texto
+
+    with st.form(f"simulador_riesgo_{clave}"):
         with st.expander("⚙️ Ajustes avanzados (opcional)"):
-            st.caption("Edita los datos del pedido que se enviarán a FastAPI.")
+            st.caption("Edita los datos del pedido que se enviarán a FastAPI. La fecha de entrega real se controla con la barra superior.")
             izquierda, derecha = st.columns(2)
             with izquierda:
                 for campo, etiqueta in [
@@ -390,10 +399,14 @@ def riesgo():
                     ("order_purchase_timestamp", "Fecha de compra"),
                     ("order_approved_at", "Fecha de aprobación"),
                     ("order_delivered_carrier_date", "Entrega al transportista"),
-                    ("order_delivered_customer_date", "Entrega real"),
                     ("order_estimated_delivery_date", "Entrega prometida"),
                 ]:
                     datos[campo] = st.text_input(etiqueta, value=str(datos[campo]))
+                st.text_input(
+                    "Entrega real (controlada por la barra)",
+                    value=fecha_nueva_texto,
+                    disabled=True
+                )
                 for campo, etiqueta in [
                     ("precio_total", "Precio total"),
                     ("flete_total", "Costo de envío"),
@@ -407,6 +420,9 @@ def riesgo():
         enviar = st.form_submit_button(
             "🔎 Calcular riesgo del pedido", type="primary", use_container_width=True
         )
+
+    # Se reafirma para evitar cualquier desajuste entre el control y el JSON.
+    datos["order_delivered_customer_date"] = fecha_nueva_texto
 
     with st.expander("🧪 Prueba técnica de la API (JSON editable)"):
         st.caption("Permite verificar el contrato de entrada y la respuesta del endpoint /riesgo.")
