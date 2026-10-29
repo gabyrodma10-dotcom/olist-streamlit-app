@@ -1828,54 +1828,56 @@ def segmentos():
 # ============================================================
 
 def validacion():
-
     titulo(
         "📈 Validación y resultados",
-        "Comparación de modelos predictivos",
+        "Comparación de modelos predictivos · evaluación temporal estricta",
     )
 
     st.write(
-        "La evaluación temporal permite comparar "
-        "el desempeño de los modelos sobre un "
-        "periodo de validación posterior."
+        "Se compararon dos modelos de Machine Learning y dos métodos "
+        "de referencia para identificar pedidos con mayor probabilidad "
+        "de recibir una reseña de **1 o 2 estrellas**. "
+        "La evaluación respeta el orden temporal de las compras."
     )
 
     a, b, c = st.columns(3)
+    a.metric("Pedidos de entrenamiento", "57,065")
+    b.metric("Pedidos de validación", "15,461")
+    c.metric("Precisión Top 10% · XGBoost", "49.48%")
 
-    a.metric(
-        "Pedidos de entrenamiento",
-        "57,065",
+    st.subheader("Metodología de validación temporal")
+    st.write(
+        "Los **77,304 pedidos** se ordenaron por fecha de compra. "
+        "Se reservó el **20% más reciente (15,461 pedidos)** para validación, "
+        "con inicio el **22 de marzo de 2018 a las 10:15:19**. "
+        "El 80% anterior contenía inicialmente 61,843 pedidos. "
+        "Para una evaluación más estricta, se excluyeron "
+        "**4,010 pedidos** entregados después del corte y "
+        "**768 pedidos** cuyas reseñas no estaban confirmadas antes "
+        "de esa fecha. El entrenamiento quedó en **57,065 pedidos**."
+    )
+    st.caption(
+        "Corte y cantidades comprobados en las celdas de auditoría "
+        "temporal y el resumen definitivo del notebook. "
+        "El conjunto de validación se mantuvo sin cambios."
     )
 
-    b.metric(
-        "Pedidos de validación",
-        "15,461",
-    )
+    resultados = pd.DataFrame({
+        "Método": [
+            "Selección aleatoria",
+            "Regla del retraso",
+            "Regresión logística",
+            "XGBoost",
+        ],
+        "Precisión Top 10%": [11.89, 38.55, 45.99, 49.48],
+    })
 
-    c.metric(
-        "Precisión Top 10% · XGBoost",
-        "49.48%",
-    )
-
-    resultados = pd.DataFrame(
-        {
-            "Método": [
-                "Selección aleatoria",
-                "Regla del retraso",
-                "Regresión logística",
-                "XGBoost",
-            ],
-            "Precisión Top 10%": [
-                11.89,
-                38.55,
-                45.99,
-                49.48,
-            ],
-        }
-    )
-
-    st.subheader(
-        "Comparación de desempeño"
+    st.subheader("Comparación de desempeño")
+    st.caption(
+        "Precisión Top 10%: proporción de reseñas negativas entre "
+        "el 10% de pedidos con mayor puntuación de riesgo de cada método. "
+        "La selección aleatoria se representa mediante la prevalencia "
+        "de reseñas negativas en validación."
     )
 
     fig = px.bar(
@@ -1883,57 +1885,72 @@ def validacion():
         x="Método",
         y="Precisión Top 10%",
         text_auto=".2f",
-        title=(
-            "Precisión entre el 10% "
-            "de pedidos priorizados"
-        ),
+        title="Precisión entre el 10% de pedidos priorizados",
     )
+    fig.update_traces(textposition="outside")
+    fig.update_layout(yaxis_title="Precisión Top 10% (%)")
+    st.plotly_chart(fig, use_container_width=True)
+    st.dataframe(resultados, use_container_width=True, hide_index=True)
 
-    st.plotly_chart(
-        fig,
-        use_container_width=True,
-    )
-
-    st.dataframe(
-        resultados,
-        use_container_width=True,
-        hide_index=True,
+    st.subheader("¿Cuánto mejora XGBoost?")
+    m1, m2, m3 = st.columns(3)
+    m1.metric("Frente a selección aleatoria", "4.16 veces")
+    m2.metric("Frente a regla del retraso", "+10.93 pp")
+    m3.metric("Frente a regresión logística", "+3.49 pp")
+    st.caption(
+        "pp = puntos porcentuales. La mejora de 4.16 veces "
+        "se calcula como 49.48 ÷ 11.89; no significa "
+        "un aumento de 4.16 puntos porcentuales."
     )
 
     st.success(
-        "XGBoost obtuvo la mayor precisión Top 10% "
-        "entre los métodos comparados."
+        "**Modelo seleccionado: XGBoost.** Obtuvo la mayor "
+        "precisión Top 10% de los cuatro métodos evaluados."
+    )
+    st.write(
+        "**Interpretación de negocio:** aproximadamente **5 de cada "
+        "10 pedidos priorizados** por XGBoost recibieron una reseña "
+        "negativa. Al concentrar el seguimiento en los pedidos con "
+        "mayor riesgo, un equipo con capacidad limitada puede "
+        "priorizar mejor sus revisiones."
     )
 
-    st.write(
-        "En esta validación, aproximadamente 5 de "
-        "cada 10 pedidos priorizados por XGBoost "
-        "recibieron una reseña negativa."
-    )
+    with st.expander("Control de fuga de información y limitaciones"):
+        st.markdown(
+            "**1. Separación temporal:** los pedidos de validación "
+            "tienen fechas de compra posteriores al corte; no se "
+            "mezclaron aleatoriamente con entrenamiento."
+        )
+        st.markdown(
+            "**2. Disponibilidad de etiquetas:** para la evaluación "
+            "estricta solo se entrenó con pedidos entregados y con "
+            "reseñas confirmadas antes del corte. Esto reduce el "
+            "riesgo de utilizar resultados futuros para entrenar."
+        )
+        st.markdown(
+            "**3. Variables predictoras:** la calificación, el texto "
+            "y las fechas de la reseña no se utilizan como entradas "
+            "del modelo. La calificación se usa únicamente para "
+            "construir la variable objetivo y evaluar el resultado."
+        )
+        st.markdown(
+            "**4. Momento de predicción:** se utilizan características "
+            "de la entrega real. Por ello, el modelo mostrado es una "
+            "**demostración posterior a la entrega**, no una alerta "
+            "que pueda calcularse antes de entregar el pedido."
+        )
+        st.markdown(
+            "**5. Alcance:** estos resultados corresponden a la "
+            "validación interna del notebook; **no equivalen** a "
+            "una evaluación con los pedidos ocultos del docente "
+            "(junio–agosto de 2018)."
+        )
 
     st.caption(
-        "Los valores mostrados corresponden "
-        "a resultados previamente reportados "
-        "en el notebook del proyecto."
+        "Resultados documentados en la validación temporal estricta "
+        "del notebook. Las métricas de esta página no se recalculan "
+        "en Streamlit."
     )
-
-    with st.expander(
-        "Consideraciones de validación"
-    ):
-
-        st.write(
-            "La evaluación debe mantener la "
-            "separación temporal, comprobar la "
-            "ausencia de fuga de información "
-            "y utilizar el mismo criterio "
-            "de comparación para los modelos."
-        )
-
-        st.write(
-            "Los resultados de validación no "
-            "equivalen a una evaluación sobre "
-            "datos ocultos del docente."
-        )
 
 
 # ============================================================
