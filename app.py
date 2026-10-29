@@ -61,22 +61,38 @@ EJEMPLOS={
 
 
 def inicio():
-    titulo('📊 Olist | Inteligencia de reseñas','Proyecto final · Análisis predictivo, comentarios y segmentación')
+    titulo('📊 Olist | Inteligencia de reseñas',
+           'Proyecto final de Machine Learning · Predicción, análisis de comentarios y segmentación')
+    st.markdown('### De los datos a decisiones para mejorar la experiencia de compra')
+    st.write('Esta solución analiza pedidos y reseñas de Olist para identificar situaciones que merecen atención, estudiar la relación entre los comentarios y las calificaciones, y comprender diferentes perfiles de vendedores.')
+
     vendedores=cargar_csv('segmentacion_vendedores.csv')
     comentarios=cargar_csv('sentimiento_comentarios.csv')
     a,b,c=st.columns(3)
-    a.metric('Vendedores registrados',f'{len(vendedores):,}' if vendedores is not None else 'Sin archivo')
-    b.metric('Comentarios registrados',f'{len(comentarios):,}' if comentarios is not None else 'Sin archivo')
-    c.metric('Módulos analíticos','3')
-    st.subheader('¿Qué problema resolvemos?')
-    st.write('Olist necesita priorizar la atención a pedidos con riesgo de recibir una reseña de 1 o 2 estrellas. La solución integra predicción de riesgo, análisis del sentimiento de los comentarios y agrupación de vendedores con características similares.')
-    st.info('La capacidad operativa planteada en la guía es contactar al 10% de pedidos de mayor riesgo. Una predicción es una ayuda para priorizar, no una decisión automática sobre clientes o vendedores.')
-    st.subheader('Componentes de la solución')
-    st.markdown('**Predicción:** pipeline XGBoost servido mediante FastAPI en Render.  \n**Comentarios:** resultados del modelo de sentimiento contrastados con estrellas.  \n**Vendedores:** segmentación K-Means y propuestas de mejora por grupo.')
-    st.markdown('**Extra (+5 puntos):** comparación de red neuronal Keras frente a XGBoost, con early stopping y curva de pérdida.')
-    st.subheader('Disponibilidad de archivos')
-    for nombre in ['segmentacion_vendedores.csv','sentimiento_comentarios.csv','perfiles_segmentos.csv','desacuerdos_analizados.csv','conclusion_comentarios.md','ficha_modelo.md']:
-        st.write(('✅ ' if (ROOT/nombre).exists() else '⚪ ')+nombre)
+    a.metric('Vendedores analizados',f'{len(vendedores):,}' if vendedores is not None else 'No disponible')
+    b.metric('Comentarios analizados',f'{len(comentarios):,}' if comentarios is not None else 'No disponible')
+    c.metric('Áreas de análisis','3')
+
+    st.subheader('¿Qué puedes explorar?')
+    col1,col2=st.columns(2)
+    with col1:
+        with st.container(border=True):
+            st.markdown('#### ⚠️ Predicción de riesgo')
+            st.write('Simula un pedido y consulta su probabilidad estimada de recibir una reseña de 1 o 2 estrellas mediante un modelo XGBoost conectado a FastAPI.')
+        with st.container(border=True):
+            st.markdown('#### 👥 Segmentación de vendedores')
+            st.write('Explora los grupos identificados con K-Means y sus diferencias en pedidos, ventas, categorías, retrasos y costos de envío.')
+    with col2:
+        with st.container(border=True):
+            st.markdown('#### 💬 Análisis de comentarios')
+            st.write('Compara el sentimiento expresado en las reseñas con la calificación en estrellas e identifica coincidencias y diferencias.')
+        with st.container(border=True):
+            st.markdown('#### 📈 Validación y comparación de modelos')
+            st.write('Consulta el desempeño de los modelos frente a alternativas sencillas y la comparación adicional de Keras con XGBoost.')
+
+    st.subheader('¿Cómo usar la aplicación?')
+    st.write('**1.** Abre una sección desde el menú lateral.  \n**2.** Explora los resultados o prueba un pedido en el simulador.  \n**3.** Consulta la validación y la ficha del modelo para entender el alcance y las limitaciones.')
+    st.caption('Los resultados son apoyo para el análisis y la priorización; no sustituyen la revisión humana ni constituyen decisiones automáticas sobre clientes o vendedores.')
 
 
 def riesgo():
