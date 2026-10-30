@@ -2183,9 +2183,29 @@ def ficha():
     )
 
     st.write(
-        "El proyecto utiliza información histórica "
-        "del conjunto de datos Olist. La validación "
-        "principal reportada incluye 15,461 pedidos."
+        "El proyecto utiliza información histórica del conjunto "
+        "de datos de comercio electrónico **Olist**, incluyendo "
+        "características de los pedidos, productos, vendedores, "
+        "pagos y entregas. Entre las variables consideradas "
+        "se encuentran los importes, costos de envío, cantidades, "
+        "categorías y fechas de compra y entrega."
+    )
+
+    st.write(
+        "Para la evaluación principal se aplicó una "
+        "**división temporal por fecha de compra**, con "
+        "**57,065 pedidos de entrenamiento** y "
+        "**15,461 pedidos de validación**. Se excluyeron del "
+        "entrenamiento los pedidos cuya entrega o confirmación "
+        "de reseña ocurrió después del corte temporal."
+    )
+
+    st.caption(
+        "La calificación de 1 o 2 estrellas define el resultado "
+        "a predecir; el texto, las estrellas y las fechas de las "
+        "reseñas no se utilizan como variables predictoras. "
+        "El modelo emplea información de entrega real, por lo "
+        "que su aplicación demostrativa es posterior a la entrega."
     )
 
     st.subheader(
