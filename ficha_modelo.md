@@ -28,9 +28,9 @@ Tampoco debe emplearse para sancionar automáticamente a vendedores, garantizar 
 
 ## 2. ¿De dónde vienen los datos, qué período cubren y qué se excluyó?
 
-Los datos provienen del conjunto histórico de comercio electrónico **Olist**, que contiene información sobre pedidos, productos, vendedores, pagos, entregas y reseñas de clientes en Brasil.
+Se analizaron **77,304 pedidos históricos de Olist**, correspondientes al período comprendido entre el **15 de septiembre de 2016 y el 31 de agosto de 2018**, según la fecha de compra (`order_purchase_timestamp`).
 
-Se analizaron **77,304 pedidos históricos**. El período utilizado corresponde al conjunto histórico extraído para el proyecto; el notebook confirma que la validación comienza el **22 de marzo de 2018**, aunque no presenta explícitamente en sus resultados las fechas mínima y máxima del conjunto completo.
+Para la validación temporal, se reservó el 20% de los pedidos más recientes, cuyo período comienza el **22 de marzo de 2018 a las 10:15:19**. Esta separación permitió evaluar el modelo respetando el orden cronológico de las compras.
 
 Para evaluar el modelo se ordenaron los pedidos por fecha de compra, separando los más recientes para validación.
 
