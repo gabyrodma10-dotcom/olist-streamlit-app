@@ -21,7 +21,7 @@ st.set_page_config(
 
 ROOT = Path(__file__).resolve().parent
 API_DEFAULT = "https://api-olist-riesgo.onrender.com"
-UMBRAL_REFERENCIA = 0.262102
+UMBRAL_REFERENCIA = 0.260125
 
 st.markdown(
     """
@@ -877,8 +877,8 @@ def riesgo():
 
     if umbral_api is None:
         st.caption(
-            "El umbral mostrado (26.21%) proviene "
-            "del cálculo final del notebook; "
+            "El umbral mostrado procede del valor "
+            "de referencia calculado en el notebook; "
             "la clasificación se toma directamente "
             "de la API. Comprueba que el umbral "
             "configurado en main.py sea el mismo."
@@ -898,7 +898,7 @@ def riesgo():
         "La probabilidad estima el riesgo individual "
         "de una reseña negativa. El umbral sirve "
         "para decidir qué pedidos requieren atención "
-        "prioritaria. No significa que el 26.21% "
+        "prioritaria. No significa que el 26.01% "
         "de los pedidos recibirá una mala reseña."
     )
 
@@ -1843,7 +1843,7 @@ def validacion():
     a, b, c = st.columns(3)
     a.metric("Pedidos de entrenamiento", "57,065")
     b.metric("Pedidos de validación", "15,461")
-    c.metric("Precisión Top 10% · XGBoost", "49.48%")
+    c.metric("Precisión Top 10% · XGBoost", "49.22%")
 
     st.subheader("Metodología de validación temporal")
     st.write(
@@ -1869,7 +1869,7 @@ def validacion():
             "Regresión logística",
             "XGBoost",
         ],
-        "Precisión Top 10%": [11.89, 38.55, 45.99, 49.48],
+        "Precisión Top 10%": [11.89, 38.55, 45.99, 49.22],
     })
 
     st.subheader("Comparación de desempeño")
@@ -1894,13 +1894,13 @@ def validacion():
 
     st.subheader("¿Cuánto mejora XGBoost?")
     m1, m2, m3 = st.columns(3)
-    m1.metric("Frente a selección aleatoria", "4.16 veces")
-    m2.metric("Frente a regla del retraso", "+10.93 pp")
-    m3.metric("Frente a regresión logística", "+3.49 pp")
+    m1.metric("Frente a selección aleatoria", "4.14 veces")
+    m2.metric("Frente a regla del retraso", "+10.67 pp")
+    m3.metric("Frente a regresión logística", "+3.23 pp")
     st.caption(
-        "pp = puntos porcentuales. La mejora de 4.16 veces "
-        "se calcula como 49.48 ÷ 11.89; no significa "
-        "un aumento de 4.16 puntos porcentuales."
+        "pp = puntos porcentuales. La relación de 4.14 veces "
+        "se calcula como 49.22 ÷ 11.89; no significa "
+        "un aumento de 4.14 puntos porcentuales."
     )
 
     st.success(
@@ -2000,8 +2000,8 @@ def plus():
                 "XGBoost",
             ],
             "Precisión Top 10% (%)": [
-                48.67,
-                48.93,
+                48.38,
+                49.16,
             ],
         }
     )
@@ -2031,7 +2031,7 @@ def plus():
 
     st.success(
         "En esta comparación, XGBoost superó "
-        "a Keras por 0.26 puntos porcentuales."
+        "a Keras por 0.78 puntos porcentuales."
     )
 
     st.info(
@@ -2039,7 +2039,7 @@ def plus():
         "del experimento adicional Keras vs. XGBoost, correspondientes "
         "a esa ejecución comparativa. La sección «Validación y resultados» "
         "presenta la evaluación temporal estricta del modelo principal, "
-        "con una precisión Top 10% de 49.48%. Al proceder de ejecuciones "
+        "con una precisión Top 10% de 49.22%. Al proceder de evaluaciones "
         "distintas, estos porcentajes no deben interpretarse como "
         "resultados de una misma ejecución."
     )
@@ -2055,27 +2055,27 @@ def plus():
             ),
             "Entrenamiento": [
                 0.3591,
-                0.3265,
-                0.3215,
-                0.3177,
-                0.3147,
-                0.3125,
-                0.3107,
-                0.3090,
-                0.3074,
-                0.3058,
+                0.3264,
+                0.3214,
+                0.3175,
+                0.3146,
+                0.3124,
+                0.3106,
+                0.3089,
+                0.3073,
+                0.3057,
             ],
             "Validación": [
                 0.3109,
-                0.3068,
-                0.3051,
+                0.3070,
+                0.3053,
+                0.3045,
                 0.3044,
-                0.3039,
-                0.3040,
-                0.3043,
                 0.3047,
-                0.3055,
-                0.3061,
+                0.3049,
+                0.3054,
+                0.3058,
+                0.3065,
             ],
         }
     )
@@ -2101,7 +2101,7 @@ def plus():
 
     st.info(
         "La menor pérdida de validación reportada "
-        "fue 0.3039 en la época 5. "
+        "fue 0.3044 en la época 5. "
         "El entrenamiento utilizó early stopping."
     )
 
@@ -2213,7 +2213,7 @@ def ficha():
     )
 
     st.write(
-        "Precisión Top 10% reportada: XGBoost 49.48%, "
+        "Precisión Top 10% reportada: XGBoost 49.22%, "
         "regresión logística 45.99%, regla del retraso "
         "38.55% y selección aleatoria 11.89%."
     )
