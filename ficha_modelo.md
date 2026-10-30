@@ -32,8 +32,6 @@ Se analizaron **77,304 pedidos históricos de Olist**, correspondientes al perí
 
 Para la validación temporal, se reservó el 20% de los pedidos más recientes, cuyo período comienza el **22 de marzo de 2018 a las 10:15:19**. Esta separación permitió evaluar el modelo respetando el orden cronológico de las compras.
 
-Para evaluar el modelo se ordenaron los pedidos por fecha de compra, separando los más recientes para validación.
-
 | Conjunto | Cantidad de pedidos |
 |---|---:|
 | Entrenamiento temporal inicial | 61,843 |
