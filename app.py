@@ -2034,11 +2034,14 @@ def plus():
         "a Keras por 0.26 puntos porcentuales."
     )
 
-    st.caption(
-        "La comparación adicional utiliza 48.93% "
-        "para XGBoost, correspondiente a la ejecución "
-        "comparativa con Keras. La validación principal "
-        "reporta 49.48%."
+    st.info(
+        "**Nota metodológica:** Esta sección presenta los resultados "
+        "del experimento adicional Keras vs. XGBoost, correspondientes "
+        "a esa ejecución comparativa. La sección «Validación y resultados» "
+        "presenta la evaluación temporal estricta del modelo principal, "
+        "con una precisión Top 10% de 49.48%. Al proceder de ejecuciones "
+        "distintas, estos porcentajes no deben interpretarse como "
+        "resultados de una misma ejecución."
     )
 
     st.subheader(
